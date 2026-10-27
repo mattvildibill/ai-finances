@@ -1,0 +1,29 @@
+# Paper transaction reconciliation
+
+This release provides a **read-only broker reconciliation operation**. It appends observations to the experiment database, but never submits/cancels orders, creates opening capital, or enables trading. `OPERATING_WORKFLOW_VERIFIED` remains false. A successful read/write cycle is not evidence that a live official trading workflow has been activated.
+
+## Server exports
+
+- `reconcile(db, env, idempotencyKey, actor, fetcher = fetch)` returns the saved `reconciliation` event. Its payload contains `status`, `trading_permitted: false`, `activity_count`, `new_fills`, `orders_closed`, `ledger_status`, `ledger_cash_cents`, and `problems: [{code,message,...}]`. Error receipts omit unavailable ledger fields. A repeated key returns the same receipt without broker calls. A fresh run uses a new key. It is safe to call before the experiment starts: the receipt reports `not_started`, and no opening or official transaction is created.
+- `readLedger(db, asOf = serverNow)` returns `{status, portfolio, benchmark, started_at, fill_count, problems, performance_basis?}`. Before an opening, `status` is `not_started`, `portfolio` and `benchmark` are null. A valid opened ledger has `status: ready`; this describes arithmetic reconstruction, **not permission to trade**. The portfolio uses the integer-cent contract in `lib/finance.js`.
+- `createOpeningPayload(snapshotEvent, startedAt = serverNow)` is a pure helper for a future verified activation flow. It requires a contemporaneous flat $100,000 account, no orders, an open regular session, and fresh IEX SPY data. It returns a proposed payload; it does not persist or activate it. An eventual internal activation flow must append exactly one `experiment_opened` event with `created_at` equal to `started_at`, after all other operational prerequisites pass. No public route exposes this helper.
+
+## Evidence and accounting
+
+The module reads Alpaca paper FILL activities with ascending pagination and records each raw response page before requesting the next. Activity IDs and raw content produce stable hashed event IDs. A changed broker version is retained separately and flagged; the original record and its original accounted fill remain unchanged. Pagination is bounded to 50 pages of 100 activities; nonadvancing pagination, a reached bound, malformed responses, or missing history block reconciliation. History reconstruction is separately bounded to 10,000 relevant records and fails explicitly rather than silently truncating.
+
+Known order intents are resolved by their stored experiment client order ID. Broker order snapshots must match the intended client ID, symbol, side, and quantity. Replacement chains require manual review. Unknown fills and unknown open orders are external activity and block reconciliation. Raw observations are retained even if they cannot be added to the official ledger.
+
+`ledger_fill` records are derived only from individually identified broker activities. Each contains its source receipt, order/intent IDs, original economic time, first observation time, quantity text, and supported exact-cent cash amount. There is no synthesis of fills from an order's average price or cumulative filled quantity. Partial fills are summed exactly by decimal quantity units. A terminal order gets an `order_closed` receipt only when its accounted activity quantity equals its broker-reported filled quantity and there are no unresolved activities for that order.
+
+The operation uses the same execution lock as order submission and renews its lease during brokerage requests. Duplicate activities cannot duplicate cash or shares. Current reconstruction orders known fills by economic time, while historical replay first excludes every record received after the requested replay time. Discovering an older economic event later never inserts it into an earlier replay.
+
+Cash and positions are compared against the broker after ingestion. Any unexplained cash movement, missing holding, external position, or inconsistent quantity leaves a blocker. The operation always reports `trading_permitted: false`; future activation must separately enforce the latest reconciliation result alongside all mandate checks.
+
+## Explicit unsupported cases
+
+Initial production orders and reconciled fills support **whole shares only**. A fractional-share activity is preserved raw with a `fractional_quantity_unsupported` blocker; it is never silently rounded or applied through floating-point quantity arithmetic. The general finance helper's fractional examples are experimental and do not establish production fractional-share support. Nonzero fractional-cent fill prices and fractional-cent transaction cash amounts are also preserved raw and blocked. Nonzero reported fill charges, corrections/busts, order replacement chains, dividends, splits, mergers, spinoffs, cash in lieu, and other corporate actions need an explicitly validated extension. The pure accounting module supports evidenced distribution/split entries, but no production acquisition or reconciliation workflow for those events is claimed here. Paper price-return arithmetic is available after a legitimate opening; total return remains unsupported.
+
+Tests use synthetic broker responses against real SQLite migrations. They cover partial fills, cancellation, duplicate retries, missing activities, raw revisions, external activity, fractional-cent rejection, pagination failures, replay, and prospective benchmark initialization. Actual hosted invocation is separately recorded in the experiment journal.
+
+API contracts checked on 27 October 2026: [Alpaca FILL activities endpoint](https://docs.alpaca.markets/us/reference/getaccountactivitiesbyactivitytype-1), [account activity fields](https://docs.alpaca.markets/us/docs/account-activities), and [activity pagination](https://docs.alpaca.markets/us/reference/getaccountactivities-2).

@@ -1,6 +1,7 @@
 import {state,refresh,submit} from '../lib/service.js';
 import {AppError,isoNow,listEvents} from '../lib/store.js';
 import {executeDecision} from '../lib/execution.js';
+import {reconcile} from '../lib/reconciliation.js';
 import {validateWriteRequest} from '../lib/request-security.js';
 import {assets} from './assets.generated.js';
 const schemaRecord={type:'object',additionalProperties:false,required:['idempotency_key','kind','payload'],properties:{idempotency_key:{type:'string',minLength:8,maxLength:160},kind:{enum:['research','challenge','decision','revision','verification']},payload:{type:'object',description:'Authored summary, never private chain of thought. Requires title, summary, author. Research/challenge/decision additionally role, evidence [{title,url,observed_at,excerpt}], snapshot_ids. Research/decision: thesis,horizon,uncertainties,change_mind. Challenge: research_id,counterargument. Decision: research_id,challenge_id,action (hold/buy/sell),size USD,symbol for buy/sell,challenge_response. Revision: supersedes. Distinct authors for each role.'}}};
@@ -9,6 +10,7 @@ const toolDefs=[
 {name:'refresh_market',description:'Fetch Alpaca paper account and AAPL/MSFT/SPY IEX observations into persistent storage. No trade. Use a stable idempotency key for retries.',inputSchema:{type:'object',required:['idempotency_key'],properties:{idempotency_key:{type:'string'}},additionalProperties:false}},
 {name:'submit_record',description:'Append structured researcher, independent challenger or portfolio-manager output. Originals cannot be edited. A hold decision is valid. This does not execute trades.',inputSchema:schemaRecord},
 {name:'execute_decision',description:'Attempt a permitted paper order for an existing approved decision. Fails closed while the experiment or its operating checks are paused. Never live trading.',inputSchema:{type:'object',required:['decision_id'],properties:{decision_id:{type:'string'}},additionalProperties:false}},
+{name:'reconcile_paper',description:'GET-only inspection of paper fill activities, known orders, cash and positions. Appends reconciliation receipts; never submits or cancels orders, activates trading, or initializes the experiment. Unsupported precision and corporate actions remain blockers.',inputSchema:{type:'object',required:['idempotency_key'],properties:{idempotency_key:{type:'string'}},additionalProperties:false}},
 {name:'export_history',description:'Export immutable records after a sequence number, up to 500 per page. Digests are SHA-256 of canonical {kind,payload}.',inputSchema:{type:'object',properties:{after_seq:{type:'integer',minimum:0}},additionalProperties:false}}
 ];
 function json(value,status=200){return new Response(JSON.stringify(value),{status,headers:{'Content-Type':'application/json','Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});}
@@ -27,6 +29,7 @@ async function call(name,args,env,actor){
  if(name==='portfolio_state')return state(env.DB,args.as_of);
  if(name==='refresh_market')return refresh(env.DB,env,args.idempotency_key,actor);
  if(name==='submit_record')return submit(env.DB,args,actor);
+ if(name==='reconcile_paper')return reconcile(env.DB,env,args.idempotency_key,actor);
  if(name==='execute_decision')return executeDecision(env.DB,env,args.decision_id,actor);
  if(name==='export_history'){
   if(!Number.isSafeInteger(args.after_seq??0)||(args.after_seq??0)<0)throw new AppError('Invalid sequence.');
@@ -57,6 +60,7 @@ export default {async fetch(request,env){
    if(url.pathname==='/api/refresh'&&request.method==='POST')return json(await call('refresh_market',await body(request),env,actor));
    if(url.pathname==='/api/records'&&request.method==='POST')return json(await call('submit_record',await body(request),env,actor));
    if(url.pathname==='/api/export'&&request.method==='GET')return json(await call('export_history',{after_seq:Number(url.searchParams.get('after_seq')||0)},env,actor));
+   if(url.pathname==='/api/reconcile'&&request.method==='POST')return json(await call('reconcile_paper',await body(request),env,actor));
    if(url.pathname==='/api/execute'&&request.method==='POST')return json(await call('execute_decision',await body(request),env,actor));
    return json({error:'Not found'},404);
   }

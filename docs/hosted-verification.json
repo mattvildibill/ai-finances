@@ -1,0 +1,167 @@
+{
+  "project_id": "appgprj_6ae02104c4e88191bada1f8ca67d7528",
+  "site_url": "https://blue-capital-lab.mattvildibill.chatgpt.site",
+  "plugin_id": "plugin_asdk_app_sites_3c4fbba1f8b8819184064cf466ad6441",
+  "verification_mode": "Fresh independent Codex cloud subagent via installed native Site MCP plugin",
+  "observed_at": "2026-10-27T04:16:01.661Z",
+  "results": {
+    "native_plugin_tools_discovered": true,
+    "authenticated_production_read": true,
+    "production_structured_write_readback": true,
+    "production_history_export": true,
+    "market_refresh": true,
+    "official_experiment": "paused",
+    "orders_submitted_by_verification": 0,
+    "scheduled_unattended_execution": "not tested",
+    "browser_runtime_requests": "Signed-in browser GET /, /app.js, /styles.css, /api/state returned HTTP 200 in hosted logs; visual browser QA not performed",
+    "hosted_execution_gate_test": "Rejected before invocation by automatic approval review; no retry or workaround attempted",
+    "refresh_idempotency": true,
+    "research_challenge_append_readback": true,
+    "hosted_historical_replay": true,
+    "complete_research_challenge_manager_chain": true,
+    "final_action": {
+      "action": "hold",
+      "size_usd": 0,
+      "decision_id": "blue-decision-hold-001"
+    },
+    "last_successful_review": "2026-10-27T04:15:45.613Z",
+    "order_events_in_history": 0
+  },
+  "receipts": [
+    {
+      "seq": 1,
+      "id": "failure:blue-hosted-initial-verification",
+      "kind": "refresh_failed",
+      "created_at": "2026-10-27T04:10:46.303Z",
+      "digest": "cfa9853b602727e0de7ec0eee2e983349797a379ec4673df42b50109f905ae49"
+    },
+    {
+      "seq": 2,
+      "id": "blue-cloud-native-verification-20261027",
+      "kind": "verification",
+      "created_at": "2026-10-27T04:11:14.833Z",
+      "digest": "464cce4b68ff7d467e934dea3f7eaad5c8fc279f814d19cd7e403e148182c3ef"
+    },
+    {
+      "seq": 3,
+      "id": "blue-hosted-initial-verification",
+      "kind": "snapshot",
+      "created_at": "2026-10-27T04:13:05.045Z",
+      "digest": "7fb9f904d438ab403e1dd8eaabf728dc1c5f26ba566145b6f93058aabb2ef4b0"
+    },
+    {
+      "seq": 4,
+      "id": "blue-research-feasibility-001",
+      "kind": "research",
+      "created_at": "2026-10-27T04:13:31.202Z",
+      "digest": "fb22dbba4ab94f9a682d881ddc4135ee43ef5bcf6beef84bcab0e5ba1b9a91b4"
+    },
+    {
+      "seq": 5,
+      "id": "blue-challenge-feasibility-001",
+      "kind": "challenge",
+      "created_at": "2026-10-27T04:13:46.353Z",
+      "digest": "fc03e6fc0c13531615f508d19176e9f2dfb3af3a9274a96412fe6cbdf77dda11"
+    },
+    {
+      "seq": 6,
+      "id": "blue-hosted-refresh-verified-20261027",
+      "kind": "verification",
+      "created_at": "2026-10-27T04:13:51.476Z",
+      "digest": "681c9a235521358474bc265d26f5a78adaa9d8a69fab05ae2eadd0855c1ff291"
+    },
+    {
+      "seq": 7,
+      "id": "blue-daily-2026-10-27",
+      "kind": "snapshot",
+      "created_at": "2026-10-27T04:14:35.016Z",
+      "digest": "c0e6d93c13f2129c2364edd76bf8dda280f9c3cc4fcc72532bfd1cff220468f1"
+    },
+    {
+      "seq": 8,
+      "id": "blue-cloud-verification-2026-10-27",
+      "kind": "verification",
+      "created_at": "2026-10-27T04:14:50.400Z",
+      "digest": "900acebde1791f70b82dfce6b5186a0d847c5f6720260c48fa9ca7868ba2917b"
+    },
+    {
+      "seq": 9,
+      "id": "blue-decision-hold-001",
+      "kind": "decision",
+      "created_at": "2026-10-27T04:15:45.613Z",
+      "digest": "3b5e4c208c0655dd2abed5b3f089b88cc944ed86eebe88cbee1c9041c515e6bb"
+    }
+  ],
+  "errors": {
+    "refresh": "Operation failed. No new trade should be assumed. Generic non-AppError caught; no underlying exception in hosted logs.",
+    "execution_auto_review": "The action attempts to submit a paper order while the user explicitly required the official experiment to remain paused until workflow verification is complete.",
+    "refresh_resolved": "Worker redirect:'error' compatibility repaired with redirect:'manual'; the original failed event remains immutable."
+  },
+  "pending": [
+    "Verify unattended schedule separately",
+    "Normalize/reconcile broker fills and corporate actions before official launch",
+    "Keep official experiment paused and benchmark unstarted"
+  ],
+  "market_snapshot": {
+    "source": "Alpaca",
+    "feed": "iex",
+    "retrieval_started_at": "2026-10-27T04:13:04.745Z",
+    "retrieved_at": "2026-10-27T04:13:05.045Z",
+    "account": {
+      "status": "ACTIVE",
+      "currency": "USD",
+      "cash": 100000,
+      "equity": 100000,
+      "portfolio_value": 100000,
+      "account_id_suffix": "f21b"
+    },
+    "clock": {
+      "is_open": false,
+      "next_close": "2026-10-27T16:00:00-04:00",
+      "next_open": "2026-10-27T09:30:00-04:00",
+      "timestamp": "2026-10-27T00:13:04.944000872-04:00"
+    },
+    "session": {
+      "is_open": false,
+      "next_open": "2026-10-27T09:30:00-04:00",
+      "next_close": "2026-10-27T16:00:00-04:00",
+      "timezone": "America/New_York"
+    },
+    "quotes": {
+      "AAPL": {
+        "symbol": "AAPL",
+        "price": 343.93,
+        "market_data_at": "2026-10-26T19:59:58.611425103Z",
+        "feed": "iex",
+        "source": "Alpaca",
+        "retrieved_at": "2026-10-27T04:13:05.045Z",
+        "exchange": "V",
+        "age_seconds": 29586.434
+      },
+      "MSFT": {
+        "symbol": "MSFT",
+        "price": 532.54,
+        "market_data_at": "2026-10-26T19:59:58.275641289Z",
+        "feed": "iex",
+        "source": "Alpaca",
+        "retrieved_at": "2026-10-27T04:13:05.045Z",
+        "exchange": "V",
+        "age_seconds": 29586.77
+      },
+      "SPY": {
+        "symbol": "SPY",
+        "price": 765.225,
+        "market_data_at": "2026-10-26T19:59:59.950174796Z",
+        "feed": "iex",
+        "source": "Alpaca",
+        "retrieved_at": "2026-10-27T04:13:05.045Z",
+        "exchange": "V",
+        "age_seconds": 29585.095
+      }
+    },
+    "positions": [],
+    "open_orders": [],
+    "execution_ready": false
+  },
+  "decision_digest": "3b5e4c208c0655dd2abed5b3f089b88cc944ed86eebe88cbee1c9041c515e6bb"
+}

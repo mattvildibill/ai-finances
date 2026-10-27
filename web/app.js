@@ -184,7 +184,7 @@ function renderRecords(state) {
   const contributions = events.filter((event) => ['research', 'challenge', 'decision', 'revision'].includes(event.kind));
   const decisions = contributions.filter((event) => event.kind === 'decision');
   $('#decision-count').textContent = decisions.length;
-  $('#contribution-total').textContent = `${contributions.length} recorded contribution${contributions.length === 1 ? '' : 's'}`;
+  $('#contribution-total').textContent = `${contributions.length} recorded contribution${contributions.length === 1 ? '' : 's'}${state.history_truncated ? ' · recent window only; export for full history' : ''}`;
   const filter = $('#decision-filter').value;
   const filtered = contributions.filter((event) => filter === 'all' || event.kind === filter);
   $('#decision-list').innerHTML = filtered.length ? filtered.map((event) => recordCard(event)).join('') : emptyState(filter === 'all' ? 'Good decisions leave a trail.' : 'No contributions in this view.', filter === 'all' ? 'The first research brief, independent challenge, and final decision will appear here as they are submitted. No conversations have been invented.' : 'Try another contribution type, or return after the next review.', '↗');
@@ -211,6 +211,7 @@ function renderHealth(state) {
   const review = health.last_successful_review || health.last_review_at;
   const automation = health.automation || health.automation_status || health.scheduler;
   const rows = [
+    healthItem('Paper reconciliation', state.last_reconciliation ? healthValue(state.last_reconciliation.payload?.status) : 'Not run', state.last_reconciliation ? `Last receipt ${formatTime(state.last_reconciliation.created_at)}. ${state.last_reconciliation.payload?.scope || 'Inspect the audit export for exact broker receipts.'}` : 'GET-only reconciliation never submits an order.'),
     healthItem('Official experiment', state.experiment?.status || 'Unverified', state.experiment?.started_at ? `Started ${formatTime(state.experiment.started_at)}` : 'No inception timestamp; no official performance history.', 'warning'),
     healthItem('Alpaca paper connection', healthValue(health.alpaca ?? health.alpaca_status ?? health.source_status ?? (account?.status === 'ACTIVE' ? 'Authenticated' : null)), 'Server-side paper endpoint only.', health.source_status === 'connected' ? 'ok' : ''),
     healthItem('Market data', snapshot ? 'Snapshot available' : 'No verified snapshot', snapshot ? `Last retrieval ${formatTime(snapshot.payload.retrieved_at || snapshot.created_at)}` : 'Alpaca IEX, with source timestamps.'),
@@ -237,7 +238,7 @@ function renderMandate(mandate) {
     ['Eligible universe', Array.isArray(mandate.universe) ? mandate.universe.join(' · ') : 'US stocks + ETFs', 'Long-only approved universe. Any expansion requires a recorded mandate revision.'],
     ['Single-stock limit', single !== undefined ? percent(single) : 'See approved mandate', 'Proposed weights include existing holdings and outstanding commitments.'],
     ['ETF concentration limit', etf !== undefined ? percent(etf) : 'See approved mandate', 'ETF exposure must also satisfy the experiment’s concentration rules.'],
-    ['Cash reserve', cashFloor !== undefined ? percent(cashFloor) : 'Unlevered cash', 'Buying power is not a spending budget. Settled available cash controls execution.'],
+    ['Cash reserve', cashFloor !== undefined ? percent(cashFloor) : 'Unlevered cash', 'Buying power is not a spending budget. Unlevered cash controls sizing; settlement must be reconciled before activation.'],
     ['Execution policy', 'Paper-only', 'Regular-session, fresh-data orders only. Retries use stable identities to prevent duplicates.'],
     ['Maximum new order', mandate.max_order !== undefined ? percent(mandate.max_order) : 'See approved mandate', 'Fraction of portfolio value per order; lower concentration or cash limits still apply.'],
     ['Maximum gross exposure', mandate.gross_limit !== undefined ? percent(mandate.gross_limit) : 'No leverage', 'Aggregate invested exposure is bounded independently of individual positions.'],
@@ -302,6 +303,24 @@ $('#replay-reset').addEventListener('click', () => {
   $('#replay-status').textContent = 'Showing the present record. Choose a past moment to restrict available information.';
   const events = currentState ? getEvents(currentState) : [];
   $('#replay-list').innerHTML = events.length ? events.map((event) => recordCard(event)).join('') : emptyState('Nothing to rewind yet.', 'The immutable timeline begins when the first record is received.', '↶');
+});
+
+$('#export-history').addEventListener('click', async () => {
+  const button = $('#export-history'); button.disabled = true; button.textContent = 'Preparing audit log…';
+  try {
+    const records = []; let cursor = 0;
+    for (let page = 0; page < 100; page++) {
+      const result = await request(`/api/export?after_seq=${cursor}`);
+      records.push(...result.records);
+      if (result.records.length < 500) break;
+      if (page === 99) throw new Error('Export exceeds browser limit; use the paginated export_history Site tool.');
+      cursor = result.next_after_seq;
+    }
+    const blob = new Blob([JSON.stringify({ exported_at: new Date().toISOString(), experiment: 'blue-capital-v1', records }, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'blue-capital-audit.json'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+    showMessage(`Exported ${records.length} immutable records with receipt times and content digests.`);
+  } catch (error) { showMessage(error.message, true); }
+  finally { button.disabled = false; button.textContent = 'Download audit log'; }
 });
 
 setView(location.hash.slice(1), false);

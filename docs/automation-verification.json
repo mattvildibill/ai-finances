@@ -1,0 +1,32 @@
+{
+  "automation_id": "Automation_836a58135960819190c113edc6440ef1",
+  "title": "Blue Capital — daily paused review",
+  "is_enabled": true,
+  "schedule": "BEGIN:VEVENT\nDTSTART;TZID=America/Los_Angeles:20261027T131500\nRRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR;BYHOUR=13;BYMINUTE=15;BYSECOND=0\nEND:VEVENT",
+  "timezone": "America/Los_Angeles",
+  "last_run": {
+    "id": "6b5a5066-35c0-8327-b492-9e33199d7bd3",
+    "recorded_status": "completed",
+    "scheduled_for": "2026-10-27T04:16:00Z",
+    "started_at": "2026-10-27T04:14:15.165328Z",
+    "completed_at": "2026-10-27T04:15:04.094411Z",
+    "chat_ref": {
+      "type": "chatgpt",
+      "id": "6ae02517-0ac4-83e8-926a-9b33d57a0849"
+    }
+  },
+  "latest_result": {
+    "run_id": "6b5a5066-35c0-8327-b492-9e33199d7bd3",
+    "created_at": "2026-10-27T04:15:03.829496Z",
+    "scheduled_for": "2026-10-27T04:16:00Z",
+    "completed_at": "2026-10-27T04:15:04.094411Z",
+    "content_text": "Blue Capital’s first cloud verification completed successfully.\n\n- `portfolio_state`: connected; experiment remains **PAUSED and unstarted**\n- Portfolio: **$100,000 cash**, no holdings, no open orders, no account drift\n- Market refresh persisted as snapshot `blue-daily-2026-10-27`, sequence 7\n- Readback confirmed the snapshot and digest\n- Market was closed; quotes were prior-session data and `execution_ready=false`\n- Verification record `blue-cloud-verification-2026-10-27` persisted as sequence 8 and was read back successfully\n- No trades, activation, paid APIs, or deployment occurred\n\nCorporate-action/distribution handling and fill reconciliation remain launch blockers.",
+    "content_truncated": false,
+    "chat_ref": {
+      "type": "chatgpt",
+      "id": "6ae02517-0ac4-83e8-926a-9b33d57a0849"
+    },
+    "requires_user_action": false,
+    "is_failure_message": false
+  }
+}
