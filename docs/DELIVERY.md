@@ -11,7 +11,7 @@ Project `appgprj_6ae02104c4e88191bada1f8ca67d7528`; Site plugin `plugin_asdk_app
 - **Production source access:** actual hosted refresh succeeded after correcting a Workers redirect-option incompatibility. Immutable snapshot `blue-hosted-initial-verification`, seq3, receipt 2026-10-27T04:13:05.045Z. $100,000 cash/equity, no positions/orders; AAPL343.93, MSFT532.54, SPY765.225 were prior-session IEX trades, not current execution quotes.
 - **Authentication, persistence and idempotency:** native authenticated tool state/read/write/export succeeded. Exact refresh retry returned identical ID, sequence, receipt and digest. Hosted replay before research submission excluded that later knowledge. An original failed refresh is preserved, not erased.
 - **Real agent outputs:** researcher seq4, independent challenger seq5, portfolio manager hold-$0 decision seq9. Distinct authored summaries, source evidence, original thesis, horizon, uncertainty, and response to challenge are visible. This is not private chain-of-thought disclosure or a fabricated conversation.
-- **Unattended data update:** cloud run `6b5a5066-35c0-8327-b492-9e33199d7bd3` completed, with matching successful result and persisted snapshot seq7 plus verification seq8. It used the Site plugin and read its writes back without deployment or a PC. See `automation-verification.json`. Regular schedule `Automation_836a58135960819190c113edc6440ef1` is enabled weekdays at 13:15 America/Los_Angeles.
+- **Unattended data update:** cloud run `6b5a5066-35c0-8327-b492-9e33199d7bd3` completed, with matching successful result and persisted snapshot seq7 plus verification seq8. It used the Site plugin and read its writes back without deployment or a PC. See `automation-verification.json`. A second scheduled run `b4d27216-4a04-8331-b1c1-26cfa7d8cc60` completed a genuinely delegated researcher→challenger→manager cycle: snapshot seq10, research seq11, challenge seq12, hold decision seq13 and read-back verification seq14. See `independent-cycle-verification.json`. Regular schedule `Automation_836a58135960819190c113edc6440ef1` is enabled weekdays at 13:15 America/Los_Angeles.
 
 ## Tests and honest limits
 
@@ -19,7 +19,7 @@ Final suite: **63 passing tests** for money/basis, fills/splits/distributions, f
 
 Frontend: **19 DOM assertions passed**, including actual quote rendering, five-view rendering, navigation, filtering, snapshot replay, escaped hostile payloads, and refresh/readback. No visual browser screenshot test was available. Production logs show authenticated browser GETs for the page, assets and state returning 200. The screenshot renderer lacked user identity and was denied, so there is no claimed visual screenshot QA.
 
-The scheduler's run-now action returned Action not found. A supported one-time schedule successfully executed instead; regular scheduling was restored. The first completed scheduled run proved data updates and readback, not a whole independently staffed investment research cycle. The Site bridge works; the user's blue dot has not itself completed its handoff.
+The scheduler's run-now action returned Action not found. A supported one-time schedule successfully executed instead; regular scheduling was restored. The first completed scheduled run proved data updates/readback; the second completed the independently staffed research/challenge/manager cycle. The user's blue dot has not itself completed its handoff, and multi-day reliability is not yet established.
 
 Automatic approval review rejected a hosted call intended to test the paused paper-order guard before invocation, because the official experiment was required to remain paused. No order request reached the Worker. That hosted negative test is unverified; local tests confirm the hard gate sends zero broker requests.
 
@@ -29,7 +29,7 @@ Official experiment **PAUSED / NOT STARTED**, $100,000 initial cash allocation, 
 
 1. Verify actual broker fills, settlement normalization, cancellation/partial-fill reconciliation and retry handling under an expressly authorized test workflow. The release's execution gate remains hard-disabled.
 2. Verify a consistent distributions, fees and corporate-action policy for active portfolio and passive SPY. Paper dividends/regulatory fees are omitted by Alpaca; unsupported actions must pause affected accounting. Fractional-cent prices are preserved and rejected by cent-only ledger normalization until explicitly reconciled, never silently rounded.
-3. Verify the prospective shared experiment/benchmark opening and a full scheduled independent research/challenge/manager cycle. Adopt the supplied prompt in blue before claiming it coordinates the work.
+3. Verify the prospective shared experiment/benchmark opening and repeated multi-day operation of the already-once-verified independent cloud cycle. Adopt the supplied prompt in blue before claiming it coordinates the work.
 
 ## Documentation and access inspected
 
