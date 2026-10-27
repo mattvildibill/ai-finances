@@ -1,3 +1,4 @@
+import {stageRollout,rolloutStatus,rolloutReviewCandidate} from '../lib/rollout-policy.js';
 import {stageValidation,validationOpeningPreflight,validationStatus} from '../lib/validation-policy.js';
 import { collectCorporateActions } from '../lib/corporate-actions.js';
 import { recordActionEvidence,confirmCorporateAction,approveActionCoverage,settleCorporateActions,coverageState } from '../lib/action-settlement.js';
@@ -5,12 +6,13 @@ import { activationPreflight,stageReleaseAttestation } from '../lib/readiness.js
 import { activateExperiment,activateValidation } from '../lib/activation.js';
 import {state,refresh,submit} from '../lib/service.js';
 import {AppError,isoNow,listEvents} from '../lib/store.js';
-import {executeDecision,executeValidationDecision} from '../lib/execution.js';
+import {executeDecision,executeValidationDecision,executeRolloutDecision} from '../lib/execution.js';
 import {reconcile} from '../lib/reconciliation.js';
 import {validateWriteRequest} from '../lib/request-security.js';
 import {assets} from './assets.generated.js';
 const schemaRecord={type:'object',additionalProperties:false,required:['idempotency_key','kind','payload'],properties:{idempotency_key:{type:'string',minLength:8,maxLength:160},kind:{enum:['research','challenge','decision','revision','verification']},payload:{type:'object',description:'Authored summary, never private chain of thought. Requires title, summary, author. Research/challenge/decision additionally role, evidence [{title,url,observed_at,excerpt}], snapshot_ids. Research/decision: thesis,horizon,uncertainties,change_mind. Challenge: research_id,counterargument. Decision: research_id,challenge_id,action (hold/buy/sell),size USD,symbol for buy/sell,limit_price_cents and valid_until for buy/sell,challenge_response. Revision: supersedes. Distinct authors for each role.'}}};
 const toolDefs=[
+{name:'opening_rollout',description:'Separate capped post-pilot paper purchases. Read status or exact actual-pilot review candidate; stage a reviewed session-limited approval; execute requires ROLLOUT_ENABLED, two actual independent pilot reviews, current release checks and all ordinary guards. $10000 cumulative purchases including pilot/commitments; $90000 uncommitted cash. No sales recycling, inception reset or general activation.',inputSchema:{type:'object',required:['operation'],properties:{operation:{enum:['status','review_candidate','stage','execute']},input:{type:'object'}},additionalProperties:false}},
 {name:'validation_phase',description:'Separately authorized one-SPY-share paper validation only. Stage exact protocol/release evidence; inspect readiness/status; prospective inception and one expiring day-limit intent require VALIDATION_ENABLED and every gate. Never certifies unobserved fills, allows a second order, or enables general trading. No automatic cancellation or price chasing.',inputSchema:{type:'object',required:['operation'],properties:{operation:{enum:['stage','readiness','status','activate','execute']},input:{type:'object',description:'stage: {idempotency_key,kind:validation_protocol|validation_release,payload}. Protocol: exact revision, mandate_version1, protocol_version1,status approved, authorization_reference, decision_id, valid_until <=24h and decision expiry, general_trading_enabled:false, exact fixed limits and pending_evidence from status. Release: status approved,revision,protocol_id,checks map of existing actual verification IDs. readiness:{snapshot_id}; activate:{idempotency_key}; execute:{decision_id}. No limit overrides or skip flags.'}},additionalProperties:false}},
 {name:'stage_release_attestation',description:'Append a release-specific attestation only for actual completed checks or actual user authorization. Requires existing measured verification IDs; never substitute synthetic tests for broker or hosted evidence. Does not enable execution or activation.',inputSchema:{type:'object',required:['idempotency_key','kind','payload'],properties:{idempotency_key:{type:'string'},kind:{enum:['launch_approval','release_verification']},payload:{type:'object'}},additionalProperties:false}},
 {name:'corporate_actions',description:'Reviewed corporate-action workflow. collect only acquires real raw notices; record captures actual issuer evidence or authored reviews; confirm and coverage validate exact independent bindings; settle appends exact due shared economic phases. Never invent sources or entitlements. Modeled dividends never increase broker cash. Does not enable execution.',inputSchema:{type:'object',required:['operation'],properties:{operation:{enum:['collect','record','confirm','coverage','settle','status']},input:{type:'object'}},additionalProperties:false}},
@@ -36,6 +38,14 @@ function authorize(request,env){
 }
 async function call(name,args,env,actor){
  if(!env.DB)throw new AppError('Persistent database is not bound.',503);
+ if(name==='opening_rollout'){
+  const input=args.input||{};
+  if(args.operation==='status')return rolloutStatus(env.DB,env);
+  if(args.operation==='review_candidate')return rolloutReviewCandidate(env.DB,input);
+  if(args.operation==='stage')return stageRollout(env.DB,env,input,actor);
+  if(args.operation==='execute')return executeRolloutDecision(env.DB,env,input.decision_id,actor);
+  throw new AppError('Unknown opening rollout operation.');
+ }
  if(name==='validation_phase'){
   const input=args.input||{};
   if(args.operation==='stage')return stageValidation(env.DB,env,input,actor);
