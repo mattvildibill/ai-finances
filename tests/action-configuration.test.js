@@ -8,6 +8,7 @@ import {IJR_PRIMARY_PRODUCT} from '../lib/issuer-source-policy.js';
 import {createBenchmark} from '../lib/finance.js';
 import {append,canonical} from '../lib/store.js';
 import {temporaryDatabase,testEnv} from './helpers.js';
+import {managedReplay} from '../lib/managed-actions.js';
 import {seedCoverage} from './action-fixtures.js';
 const actor='synthetic:version-tests';const now=()=>new Date().toISOString();const day=()=>marketDate(now());
 const fetchActions=response=>async(url,options)=>{assert.equal(new URL(url).origin,'https://data.alpaca.markets');assert.equal(options.method,'GET');return Response.json(response);};
@@ -61,6 +62,35 @@ test('candidate IJR confirmation is config-bound and has zero pre-admission hold
  const input={configuration_version:2,action_id:raw.id,raw_event_id:fetch.payload.pages[0],source_id:source.id,review_ids};await confirmCorporateAction(db,input,'ijr-review-manager');
  let events=await actionEvents(db);assert.throws(()=>actionApproval(events,{...input,configuration_version:1},'another-manager'),/Exact raw/);
  const before=replaySharedActions(opening,events,now());assert.deepEqual(before.pending,[]);assert.deepEqual(before.problems,[]);assert.equal(before.economic.active.income_cents,0);
+ // Managed accounting must reuse candidate-version economics without admitting that legacy universe.
+ const held={id:'managed-ijr-fill',seq:events.at(-1).seq+1,kind:'ledger_fill',created_at:now(),payload:{fill:{id:'managed-ijr-fill',symbol:'IJR',side:'buy',quantity:2,price_text:'100',fee_cents:0,occurred_at:'2026-10-02T14:00:00.000Z',observed_at:now()}}};
+ const managedEvents=[...events,held],copy=canonical(managedEvents),cutoff=now();
+ const managed=managedReplay(opening,managedEvents,cutoff);
+ assert.equal(policyVersionAt(managedEvents),1);assert.deepEqual(managed.problems,[]);
+ assert.equal(managed.economic.active.income_cents,50);assert.equal(managed.pending.length,2);
+ assert.ok(managed.pending.every(e=>e.payload.confirmation_id===events.find(e=>e.kind==='action_confirmed').id));
+ assert.equal(canonical(managedEvents),copy);
+ const settled=[...managedEvents,...managed.pending.map((e,i)=>({...e,seq:held.seq+i+1,created_at:cutoff}))];
+ const replayed=managedReplay(opening,settled,cutoff);
+ assert.deepEqual(replayed.problems,[]);assert.equal(replayed.pending.length,0);assert.equal(replayed.economic.active.income_cents,50);
+ const confirmation=events.find(e=>e.kind==='action_confirmed');
+ const corrupt=managedEvents.map(e=>e.id===confirmation.id?{...e,payload:{...e.payload,configuration:'forged'}}:e);
+ assert.ok(managedReplay(opening,corrupt,cutoff).problems.length>0);
+ const duplicate={...confirmation,id:'duplicate-economic-definition',seq:held.seq+1,created_at:cutoff};
+ assert.ok(managedReplay(opening,[...managedEvents,duplicate],cutoff).problems.length>0);
+
+ assert.equal(managedReplay(opening,managedEvents,start).economic.active.income_cents,0);
+ const adverse=(kind,payload)=>({id:'later-adverse',seq:held.seq+1,kind,created_at:new Date(Date.parse(cutoff)+1).toISOString(),payload});
+ for(const e of [
+  adverse('action_review',{configuration_version:2,author:'later-reviewer',status:'rejected',binding:canonical(core)}),
+  adverse('action_source',{...source.payload,terms:{...terms,rate:'0.30'}}),
+  adverse('corporate_action_page',{configuration_version:2,configuration:policyCanonical(2),query:{symbols:'AAPL,MSFT,SPY,IJR'},response:{corporate_actions:{cash_dividends:[{...raw,rate:'0.30'}]}}})
+ ]){
+  assert.ok(managedReplay(opening,[...managedEvents,e],e.created_at).problems.length>0);
+  assert.deepEqual(managedReplay(opening,[...managedEvents,e],cutoff),managed);
+ }
+ await assert.rejects(confirmCorporateAction(db,{...input,configuration_version:1},'another-manager'),/already confirmed|Exact raw/);
+ assert.equal((await actionEvents(db)).filter(e=>e.kind==='action_confirmed').length,1);
  const at=now();await append(db,amendment(at),at);events=await actionEvents(db);const after=replaySharedActions(opening,events,now());assert.deepEqual(after.problems,[]);assert.equal(after.pending.length,2);assert.deepEqual(after.pending[0].payload.quantities,{active:0,benchmark:0});assert.equal(after.economic.active.income_cents,0);assert.equal(after.economic.benchmark.income_cents,0);
 });
 
