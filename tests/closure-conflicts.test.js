@@ -62,3 +62,29 @@ test('later GET-only order observation conflicts persist; equivalent sanitized o
   assert.equal(result.payload.status,status==='filled'?'reconciled':'blocked');
  }
 });
+
+test('either replacement-chain field remains a durable conflict after a later clean receipt',async t=>{
+ for(const field of ['replaces','replaced_by']){
+  const f=await setup(t);f.setOrder({...f.original,[field]:'another-broker-order'});
+  const first=await reconcile(f.db,testEnv,'replacement-observed',actor,f.fetcher);assert.equal(first.payload.status,'blocked');
+  const records=await listEvents(f.db,new Date().toISOString()),conflict=records.find(e=>e.kind==='order_closure_conflict');
+  assert.ok(conflict.payload.differences.includes(field));
+  const raw=await getEvent(f.db,conflict.payload.broker_order_event_id);assert.equal(raw.payload.order[field],'another-broker-order');
+  f.setOrder(f.original);const clean=await reconcile(f.db,testEnv,'replacement-then-clean',actor,f.fetcher);
+  assert.equal(clean.payload.status,'blocked');assert.equal((await state(f.db)).accounting.status,'blocked');
+  assert.deepEqual(await getEvent(f.db,f.closure.id),f.closure);assert.deepEqual(await getEvent(f.db,f.fill.id),f.fill);
+  assert.deepEqual(await getEvent(f.db,raw.id),raw);assert.equal((await listEvents(f.db,new Date().toISOString())).filter(e=>e.kind==='order_closure_conflict').length,1);
+ }
+});
+
+test('historical-only replacement-chain receipts remain material even when current broker receipt is clean',async t=>{
+ for(const field of ['replaces','replaced_by'])for(const kind of ['broker_order','order_observed']){
+  const f=await setup(t),order={...f.original,[field]:'historical-replacement'};
+  const raw=await append(f.db,{id:'historical-replacement-receipt',kind,actor,payload:kind==='broker_order'?{intent_id:'closure-intent-fixture',order}:{intent_id:'closure-intent-fixture',...order}});
+  const result=await reconcile(f.db,testEnv,'historical-replacement-scan',actor,f.fetcher);assert.equal(result.payload.status,'blocked');
+  const conflict=(await listEvents(f.db,new Date().toISOString())).find(e=>e.kind==='order_closure_conflict');
+  assert.equal(conflict.payload.broker_order_event_id,raw.id);assert.ok(conflict.payload.differences.includes(field));
+  assert.deepEqual(await getEvent(f.db,raw.id),raw);assert.deepEqual(await getEvent(f.db,f.closure.id),f.closure);assert.deepEqual(await getEvent(f.db,f.fill.id),f.fill);
+  assert.equal((await readLedger(f.db)).status,'blocked');
+ }
+});
