@@ -246,3 +246,16 @@ test('inception journal fence rejects a later failed review arriving at final re
  await assert.rejects(activateValidation(db,env,{idempotency_key:'invalidation-during-opening'},actor,f.fetcher),/journal changed|superseded/);
  assert.equal(injected,true);assert.equal((await records(db)).filter(e=>e.kind==='experiment_opened').length,0);assert.equal(f.posts,0);
 });
+
+test('lease loss during asynchronous final evidence reads prevents a broker POST',async t=>{
+ const {db}=temporaryDatabase(t);await prepared(db);const f=broker();const prepare=db.prepare.bind(db);let heads=0,stolen=false;
+ db.prepare=sql=>{const statement=prepare(sql);
+  if(sql==='SELECT MAX(seq) AS seq FROM events'){
+   const first=statement.first.bind(statement);statement.first=async()=>{const result=await first();heads++;if(heads===2){stolen=true;db.sqlite.exec("UPDATE locks SET token='synthetic-new-owner'");}return result;};
+  }
+  return statement;
+ };
+ await assert.rejects(executeValidationDecision(db,env,'validation-decision',actor,f.fetcher),/lease|journal/i);
+ assert.equal(stolen,true);assert.equal(f.posts,0);
+ assert.equal((await db.prepare('SELECT token FROM locks').first()).token,'synthetic-new-owner');
+});
