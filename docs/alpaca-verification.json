@@ -1,0 +1,283 @@
+{
+  "verification_completed_at": "2026-10-27T03:57:04.906053+00:00",
+  "mode": "read-only",
+  "paper_endpoint_enforced": true,
+  "orders_submitted": 0,
+  "source": "Alpaca Trading API paper account and Market Data API IEX",
+  "checks": {
+    "account": {
+      "endpoint": "https://paper-api.alpaca.markets/v2/account",
+      "retrieval_started_at": "2026-10-27T03:57:03.974447+00:00",
+      "retrieved_at": "2026-10-27T03:57:04.470593+00:00",
+      "http_status": 200,
+      "account": {
+        "status": "ACTIVE",
+        "currency": "USD",
+        "cash": "100000",
+        "equity": "100000",
+        "portfolio_value": "100000",
+        "buying_power": "400000",
+        "multiplier": "4",
+        "trading_blocked": false,
+        "account_blocked": false,
+        "shorting_enabled": true,
+        "pattern_day_trader": null,
+        "account_id_suffix": "f21b"
+      }
+    },
+    "clock": {
+      "endpoint": "https://paper-api.alpaca.markets/v2/clock",
+      "retrieval_started_at": "2026-10-27T03:57:03.974877+00:00",
+      "retrieved_at": "2026-10-27T03:57:04.745288+00:00",
+      "http_status": 200,
+      "clock": {
+        "is_open": false,
+        "next_close": "2026-10-27T16:00:00-04:00",
+        "next_open": "2026-10-27T09:30:00-04:00",
+        "timestamp": "2026-10-26T23:57:04.678895534-04:00"
+      }
+    },
+    "positions": {
+      "endpoint": "https://paper-api.alpaca.markets/v2/positions",
+      "retrieval_started_at": "2026-10-27T03:57:03.975199+00:00",
+      "retrieved_at": "2026-10-27T03:57:04.607615+00:00",
+      "http_status": 200,
+      "count": 0,
+      "symbols": []
+    },
+    "open_orders": {
+      "endpoint": "https://paper-api.alpaca.markets/v2/orders?status=open&limit=500",
+      "retrieval_started_at": "2026-10-27T03:57:03.975512+00:00",
+      "retrieved_at": "2026-10-27T03:57:04.903984+00:00",
+      "http_status": 200,
+      "count": 0,
+      "symbols": []
+    },
+    "latest_trades": {
+      "endpoint": "https://data.alpaca.markets/v2/stocks/trades/latest?symbols=AAPL,MSFT,SPY&feed=iex",
+      "retrieval_started_at": "2026-10-27T03:57:03.976243+00:00",
+      "retrieved_at": "2026-10-27T03:57:04.584285+00:00",
+      "http_status": 200,
+      "feed": "iex",
+      "trades": {
+        "MSFT": {
+          "price": 532.54,
+          "market_data_at": "2026-10-26T19:59:58.275641289Z",
+          "size": 40,
+          "exchange": "V",
+          "conditions": [
+            "@"
+          ],
+          "market_date_new_york": "2026-10-26",
+          "market_time_new_york": "2026-10-26T15:59:58.275641-04:00",
+          "time_window": "regular-hours",
+          "calendar_validation": "Clock authoritative for current session; timestamp window alone does not validate holiday calendar"
+        },
+        "AAPL": {
+          "price": 343.93,
+          "market_data_at": "2026-10-26T19:59:58.611425103Z",
+          "size": 43,
+          "exchange": "V",
+          "conditions": [
+            "@"
+          ],
+          "market_date_new_york": "2026-10-26",
+          "market_time_new_york": "2026-10-26T15:59:58.611425-04:00",
+          "time_window": "regular-hours",
+          "calendar_validation": "Clock authoritative for current session; timestamp window alone does not validate holiday calendar"
+        },
+        "SPY": {
+          "price": 765.225,
+          "market_data_at": "2026-10-26T19:59:59.950174796Z",
+          "size": 80,
+          "exchange": "V",
+          "conditions": [
+            " "
+          ],
+          "market_date_new_york": "2026-10-26",
+          "market_time_new_york": "2026-10-26T15:59:59.950174-04:00",
+          "time_window": "regular-hours",
+          "calendar_validation": "Clock authoritative for current session; timestamp window alone does not validate holiday calendar"
+        }
+      }
+    },
+    "snapshots": {
+      "endpoint": "https://data.alpaca.markets/v2/stocks/snapshots?symbols=AAPL,MSFT,SPY&feed=iex",
+      "retrieval_started_at": "2026-10-27T03:57:03.976704+00:00",
+      "retrieved_at": "2026-10-27T03:57:04.765444+00:00",
+      "http_status": 200,
+      "feed": "iex",
+      "snapshots": {
+        "SPY": {
+          "dailyBar": {
+            "c": 765.225,
+            "h": 767.73,
+            "l": 761.69,
+            "n": 16150,
+            "o": 762.265,
+            "t": "2026-10-26T04:00:00Z",
+            "v": 887327,
+            "vw": 765.146448
+          },
+          "latestQuote": {
+            "ap": 785.19,
+            "as": 40,
+            "ax": "V",
+            "bp": 739.4,
+            "bs": 40,
+            "bx": "V",
+            "c": [
+              "R"
+            ],
+            "t": "2026-10-26T20:00:00.003818259Z",
+            "z": "B"
+          },
+          "latestTrade": {
+            "c": [
+              " "
+            ],
+            "i": 52984014791800,
+            "p": 765.225,
+            "s": 80,
+            "t": "2026-10-26T19:59:59.950174796Z",
+            "x": "V",
+            "z": "B"
+          },
+          "minuteBar": {
+            "c": 765.225,
+            "h": 765.41,
+            "l": 765.04,
+            "n": 452,
+            "o": 765.15,
+            "t": "2026-10-26T19:59:00Z",
+            "v": 52158,
+            "vw": 765.24573
+          },
+          "prevDailyBar": {
+            "c": 759.83,
+            "h": 763.44,
+            "l": 758.68,
+            "n": 18516,
+            "o": 759.885,
+            "t": "2026-10-23T04:00:00Z",
+            "v": 1089706,
+            "vw": 760.735857
+          }
+        },
+        "MSFT": {
+          "dailyBar": {
+            "c": 532.54,
+            "h": 533.205,
+            "l": 521.93,
+            "n": 15190,
+            "o": 527.33,
+            "t": "2026-10-26T04:00:00Z",
+            "v": 625026,
+            "vw": 529.790129
+          },
+          "latestQuote": {
+            "ap": 554.33,
+            "as": 40,
+            "ax": "V",
+            "bp": 500.46,
+            "bs": 40,
+            "bx": "V",
+            "c": [
+              "R"
+            ],
+            "t": "2026-10-26T20:00:00.004219582Z",
+            "z": "C"
+          },
+          "latestTrade": {
+            "c": [
+              "@"
+            ],
+            "i": 15186,
+            "p": 532.54,
+            "s": 40,
+            "t": "2026-10-26T19:59:58.275641289Z",
+            "x": "V",
+            "z": "C"
+          },
+          "minuteBar": {
+            "c": 532.54,
+            "h": 532.81,
+            "l": 532.395,
+            "n": 380,
+            "o": 532.81,
+            "t": "2026-10-26T19:59:00Z",
+            "v": 16076,
+            "vw": 532.605648
+          },
+          "prevDailyBar": {
+            "c": 524.375,
+            "h": 525.72,
+            "l": 515.79,
+            "n": 11733,
+            "o": 517.745,
+            "t": "2026-10-23T04:00:00Z",
+            "v": 446134,
+            "vw": 522.698878
+          }
+        },
+        "AAPL": {
+          "dailyBar": {
+            "c": 343.93,
+            "h": 347.085,
+            "l": 341.06,
+            "n": 22252,
+            "o": 343.875,
+            "t": "2026-10-26T04:00:00Z",
+            "v": 960938,
+            "vw": 344.009478
+          },
+          "latestQuote": {
+            "ap": 351.41,
+            "as": 40,
+            "ax": "V",
+            "bp": 326.75,
+            "bs": 40,
+            "bx": "V",
+            "c": [
+              "R"
+            ],
+            "t": "2026-10-26T20:00:00.019481347Z",
+            "z": "C"
+          },
+          "latestTrade": {
+            "c": [
+              "@"
+            ],
+            "i": 22251,
+            "p": 343.93,
+            "s": 43,
+            "t": "2026-10-26T19:59:58.611425103Z",
+            "x": "V",
+            "z": "C"
+          },
+          "minuteBar": {
+            "c": 343.93,
+            "h": 344.01,
+            "l": 343.805,
+            "n": 569,
+            "o": 343.96,
+            "t": "2026-10-26T19:59:00Z",
+            "v": 23351,
+            "vw": 343.927088
+          },
+          "prevDailyBar": {
+            "c": 347.69,
+            "h": 351.68,
+            "l": 345.76,
+            "n": 19040,
+            "o": 349.155,
+            "t": "2026-10-23T04:00:00Z",
+            "v": 960247,
+            "vw": 347.985252
+          }
+        }
+      }
+    }
+  },
+  "authentication_and_data_verified": true
+}

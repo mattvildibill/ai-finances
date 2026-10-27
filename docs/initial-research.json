@@ -1,0 +1,57 @@
+{
+  "title": "Paper account verified; preserve cash while the operating workflow is validated",
+  "summary": "Read-only verification succeeded for the Alpaca paper account, market clock, positions, open orders and explicit IEX data for AAPL, MSFT and SPY. The account held $100,000 cash and no positions or open orders. This establishes API access, not an investment edge or a verified unattended execution workflow. I recommend holding all cash and keeping the official experiment paused.",
+  "author": "Alpaca feasibility researcher (Codex subagent)",
+  "role": "researcher",
+  "thesis": "The evidence supports technical feasibility of obtaining paper-account state and timestamped free IEX observations. It does not support a directional investment conclusion. At retrieval the market was closed, and the last trades were approximately eight hours old. Beginning the experiment before production authentication, append-only persistence, execution safeguards, benchmark initialization and unattended readback are verified would create avoidable operational and measurement risk. A zero-position hold is therefore the appropriate present recommendation.",
+  "horizon": "Until the operating workflow passes verification and a future regular trading session supplies sufficiently fresh data; no retroactive experiment start.",
+  "uncertainties": [
+    "Development-environment authentication does not establish that hosted runtime secrets or a scheduled agent can access Alpaca.",
+    "IEX covers one exchange; last trades can differ from the consolidated NBBO used by Alpaca paper fills.",
+    "No order has been submitted, so live hosted order submission, reconciliation and retry behavior remain unverified by this preflight.",
+    "Paper trading omits dividends and regulatory fees. A total-return comparison requires separate verified distribution accounting; otherwise both sides must consistently use a disclosed price-return convention.",
+    "Corporate-action reconciliation and same-start SPY benchmark initialization still require verification.",
+    "The account advertises leverage and shorting permissions, which application code must override with cash-only, long-only limits."
+  ],
+  "change_mind": [
+    "A verified hosted update/readback flow with authenticated role checks and durable append-only evidence.",
+    "A successful independent review of idempotent paper-only execution, cash and concentration limits, stale-data handling and reconciliation.",
+    "A documented benchmark/corporate-action policy and a prospective common start timestamp.",
+    "New evidence-backed research that justifies a permitted position during a fresh regular-session market snapshot."
+  ],
+  "evidence": [
+    {
+      "title": "Observed Alpaca paper-account preflight (sanitized record in docs/alpaca-verification.json)",
+      "url": "https://paper-api.alpaca.markets/v2/account",
+      "observed_at": "2026-10-27T03:57:04.470593+00:00",
+      "excerpt": "Observed API response: HTTP 200; ACTIVE; cash and equity $100,000. Separate positions and open-order requests returned empty lists. Buying power $400,000 and shorting enabled are broker permissions, not experiment authorization."
+    },
+    {
+      "title": "Observed Alpaca trading clock",
+      "url": "https://paper-api.alpaca.markets/v2/clock",
+      "observed_at": "2026-10-27T03:57:04.745288+00:00",
+      "excerpt": "Observed API response: market closed; clock timestamp 2026-10-26T23:57:04.678895534-04:00; next regular open 2026-10-27T09:30:00-04:00."
+    },
+    {
+      "title": "Observed explicit IEX latest trades",
+      "url": "https://data.alpaca.markets/v2/stocks/trades/latest?symbols=AAPL,MSFT,SPY&feed=iex",
+      "observed_at": "2026-10-27T03:57:04.584285+00:00",
+      "excerpt": "Observed API response: AAPL $343.93 at 2026-10-26T19:59:58.611425103Z; MSFT $532.54 at 19:59:58.275641289Z; SPY $765.225 at 19:59:59.950174796Z. These prior-session trades were not current execution quotes at retrieval."
+    },
+    {
+      "title": "Alpaca paper-trading assumptions",
+      "url": "https://docs.alpaca.markets/us/docs/paper-trading",
+      "observed_at": "2026-10-27T04:03:53Z",
+      "excerpt": "Paraphrase of current official documentation: paper fills use NBBO and do not model dividends, regulatory fees, market impact, latency slippage or order queue position."
+    },
+    {
+      "title": "Alpaca Basic market-data coverage",
+      "url": "https://docs.alpaca.markets/us/docs/about-market-data-api",
+      "observed_at": "2026-10-27T04:03:53Z",
+      "excerpt": "Paraphrase of current official documentation: Basic is free and real-time US equities coverage is limited to IEX; this is not consolidated exchange coverage."
+    }
+  ],
+  "snapshot_ids": [
+    "FIRST_HOSTED_SNAPSHOT"
+  ]
+}

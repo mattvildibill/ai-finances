@@ -1,0 +1,11 @@
+node_modules/
+dist/
+outputs/
+.env*
+.dev.vars*
+.sites-runtime/
+.wrangler/
+__pycache__/
+*.sqlite*
+
+worker/assets.generated.js

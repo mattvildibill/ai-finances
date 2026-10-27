@@ -1,0 +1,40 @@
+{
+  "title": "A working data connection is not yet a fair investment experiment",
+  "summary": "Independent challenge: the verified paper account and IEX observations establish access, but they do not establish executable prices, a fair SPY total-return comparison, or an unattended research workflow. Retain all $100,000 as uncommitted simulated cash and keep official performance unstarted.",
+  "author": "Independent risk challenger (Codex subagent)",
+  "role": "challenger",
+  "research_id": "FIRST_RESEARCH",
+  "counterargument": "The preflight is necessary but insufficient. At retrieval, the market was closed and the latest AAPL, MSFT and SPY trades were approximately eight hours old. IEX is one venue while Alpaca paper fills use NBBO, so a displayed last trade cannot be booked as an executed transaction. Paper trading excludes dividends and regulatory fees; comparing its equity with an adjusted SPY total-return series would mix incompatible accounting bases. A separately observed corporate-action ledger, prospective common start, broker-fill reconciliation and authenticated cloud update/readback must work before activation. A hosted website also cannot treat a ChatGPT subscription as API credit: blue must use a supported connected workflow rather than an assumed subscription endpoint. None of these objections implies a directional forecast for AAPL, MSFT or SPY.",
+  "evidence": [
+    {
+      "title": "Observed Alpaca paper clock and IEX latest trades, sanitized preflight",
+      "url": "https://paper-api.alpaca.markets/v2/clock",
+      "observed_at": "2026-10-27T03:57:04.906053Z",
+      "excerpt": "Observed in docs/alpaca-verification.json: is_open=false; next_open=2026-10-27T09:30:00-04:00. AAPL and MSFT latest trades are timestamped 2026-10-26T19:59:58Z; SPY 19:59:59Z. Retrieval completed 2026-10-27T03:57:04Z. The account has $100,000 cash and no positions or open orders."
+    },
+    {
+      "title": "Alpaca paper-trading specification",
+      "url": "https://docs.alpaca.markets/us/docs/paper-trading",
+      "observed_at": "2026-10-27T04:04:29.186532Z",
+      "excerpt": "Paraphrase of official specification: paper fills use NBBO, can be partial, and do not account for dividends, regulatory fees, market impact, queue position or latency slippage. Simulated performance can differ from real trading."
+    },
+    {
+      "title": "Alpaca Market Data Basic coverage",
+      "url": "https://docs.alpaca.markets/us/docs/about-market-data-api",
+      "observed_at": "2026-10-27T04:04:29.186532Z",
+      "excerpt": "Paraphrase of official plan table: Basic is free for US stocks and ETFs; real-time equity coverage is IEX. This is not consolidated coverage across all US stock exchanges."
+    },
+    {
+      "title": "OpenAI separate ChatGPT and API billing",
+      "url": "https://help.openai.com/en/articles/9039756-managing-billing-for-chatgpt-and-the-api-platform",
+      "observed_at": "2026-10-27T04:04:29.186532Z",
+      "excerpt": "Paraphrase of official billing guidance: ChatGPT and the API platform have separate billing systems; API usage is billed separately from the ChatGPT subscription. Existing subscription access does not establish a deployed application API entitlement."
+    }
+  ],
+  "snapshot_ids": [
+    "FIRST_HOSTED_SNAPSHOT"
+  ],
+  "recommended_action": "hold",
+  "recommended_size": 0,
+  "review_scope": "Authored independent evidence summary, not a transcript of private reasoning."
+}
