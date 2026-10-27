@@ -108,6 +108,11 @@ function renderState(state) {
   $('#app-content').hidden = false;
 }
 
+function approvedUniverse(mandate) {
+  const symbols = mandate?.universe;
+  return Array.isArray(symbols) && symbols.length > 0 && symbols.every(symbol => typeof symbol === 'string' && /^[A-Z][A-Z0-9.-]{0,9}$/.test(symbol)) && new Set(symbols).size === symbols.length ? symbols : null;
+}
+
 function renderMarket(state) {
   const snapshot = latestSnapshot(state);
   const payload = snapshot?.payload || {};
@@ -115,15 +120,16 @@ function renderMarket(state) {
   const clock = payload.clock || {};
   const retrieved = payload.retrieved_at || snapshot?.created_at || payload.retrieval_time;
   const names = { AAPL: 'Apple Inc.', MSFT: 'Microsoft', SPY: 'S&P 500 ETF' };
-  $('#market-quotes').innerHTML = ['AAPL', 'MSFT', 'SPY'].map((symbol) => {
-    const raw = Array.isArray(quotes) ? quotes.find((entry) => entry.symbol === symbol) : quotes[symbol];
+  const universe = approvedUniverse(state.mandate);
+  $('#market-quotes').innerHTML = universe ? universe.map((symbol) => {
+    const raw = Array.isArray(quotes) ? quotes.find((entry) => entry?.symbol === symbol) : quotes[symbol];
     const quote = raw?.latestTrade || raw?.trade || raw || {};
     const price = presentOrLegacy(quote.price, quote.p);
     const timestamp = quote.market_data_at || quote.timestamp || quote.t;
     const age = (new Date(state.as_of).getTime() - new Date(timestamp).getTime()) / 1000;
     const freshness = !timestamp || !Number.isFinite(age) ? 'Unverified time' : age < -5 ? 'Future timestamp' : age > 120 ? 'Stale' : 'At state cutoff';
-    return `<div class="quote-row"><div class="quote-symbol"><span class="ticker-icon ${symbol === 'SPY' ? 'spy' : ''}" aria-hidden="true">${symbol === 'SPY' ? 'S' : symbol === 'AAPL' ? 'A' : 'M'}</span><div class="ticker-name"><strong>${symbol}</strong><span>${names[symbol]}</span></div></div><div class="quote-price"><strong>${money(price, 3).replace(/0$/, '')}</strong><time ${timestamp ? `datetime="${escapeHTML(timestamp)}"` : ''}>${timestamp ? escapeHTML(formatTime(timestamp)) : 'No verified price'}</time><span class="quote-freshness">${freshness}</span></div></div>`;
-  }).join('');
+    return `<div class="quote-row"><div class="quote-symbol"><span class="ticker-icon ${symbol === 'SPY' ? 'spy' : ''}" aria-hidden="true">${escapeHTML(symbol[0])}</span><div class="ticker-name"><strong>${escapeHTML(symbol)}</strong><span>${escapeHTML(names[symbol] || 'Approved instrument')}</span></div></div><div class="quote-price"><strong>${money(price, 3).replace(/0$/, '')}</strong><time ${timestamp ? `datetime="${escapeHTML(timestamp)}"` : ''}>${timestamp ? escapeHTML(formatTime(timestamp)) : 'No verified price'}</time><span class="quote-freshness">${freshness}</span></div></div>`;
+  }).join('') : emptyState('Approved universe unavailable', 'No approved symbol list was returned with this state.');
   $('#retrieval-time').textContent = retrieved ? formatTime(retrieved, true) : 'No successful retrieval';
   const observedAt = clock.timestamp;
   const observedMs = observedAt ? new Date(observedAt).getTime() : NaN;
@@ -271,12 +277,16 @@ function renderHealth(state) {
 }
 
 function renderMandate(mandate) {
+  const universe = approvedUniverse(mandate);
+  const version = value => Number.isSafeInteger(value) && value > 0 ? String(value) : 'unavailable';
+  const universeVersion = mandate.universe_version === undefined ? mandate.configuration_version : mandate.universe_version;
+  $('#mandate-version').textContent = `Mandate ${version(mandate.mandate_version)} · Universe ${version(universeVersion)}`;
   const single = mandate.max_position_weight ?? mandate.max_single_position ?? mandate.stock_limit;
   const etf = mandate.max_etf_weight ?? mandate.etf_limit;
   const cashFloor = mandate.min_cash_weight ?? mandate.cash_reserve ?? mandate.min_cash;
   const items = [
     ['Starting capital', '$100,000', 'Imaginary USD. No deposits, withdrawals, leverage, shorts, or options.'],
-    ['Eligible universe', Array.isArray(mandate.universe) ? mandate.universe.join(' · ') : 'US stocks + ETFs', 'Long-only approved universe. Any expansion requires a recorded mandate revision.'],
+    ['Eligible universe', universe ? universe.join(' · ') : 'Unavailable', 'Long-only approved universe. Any expansion requires a recorded mandate revision.'],
     ['Single-stock limit', single !== undefined ? percent(single) : 'See approved mandate', 'Proposed weights include existing holdings and outstanding commitments.'],
     ['ETF concentration limit', etf !== undefined ? percent(etf) : 'See approved mandate', 'ETF exposure must also satisfy the experiment’s concentration rules.'],
     ['Cash reserve', cashFloor !== undefined ? percent(cashFloor) : 'Unlevered cash', 'Buying power is not a spending budget. Unlevered cash controls sizing; settlement must be reconciled before activation.'],

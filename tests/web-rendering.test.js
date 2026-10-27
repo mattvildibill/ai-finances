@@ -91,7 +91,7 @@ test('statement distinguishes positive, negative, zero and unavailable P&L witho
 
 test('quote source times distinguish stale, future and unverified observations', () => {
   const view = ui();
-  view.renderMarket({ as_of: '2026-10-27T14:00:00Z', latest_snapshot: { payload: { quotes: {
+  view.renderMarket({ mandate: { universe: ['AAPL', 'MSFT', 'SPY'] }, as_of: '2026-10-27T14:00:00Z', latest_snapshot: { payload: { quotes: {
     AAPL: { price: 100, market_data_at: '2026-10-27T13:00:00Z' },
     MSFT: { price: 200, market_data_at: '2026-10-27T14:01:00Z' },
     SPY: { price: null }
@@ -253,4 +253,40 @@ test('unknown and malformed numeric state never becomes reassuring zero or pre-l
   assert.equal(view.get('#return-value').textContent,'Not started');
   assert.equal(view.get('#capital-state').textContent,'PRE-LAUNCH');
   assert.equal(view.get('#holdings-count').textContent,'0 positions');
+});
+
+test('market rows and mandate versions use only the returned approved universe', () => {
+  const view = ui();
+  const state = { mandate: { universe: ['AAPL', 'MSFT', 'SPY', 'IJR'], universe_version: 2, configuration_version: 2, mandate_version: 3 }, latest_snapshot: { payload: { quotes: { IJR: {price: 115}, PENNY: {price: 1} } } }, candidates: ['PENNY'] };
+  view.renderState(state);
+  const html = view.get('#market-quotes').innerHTML;
+  assert.equal((html.match(/class="quote-row"/g) || []).length, 4);
+  assert.match(html, /<strong>IJR<\/strong>/);
+  assert.match(html, /\$115\.00/);
+  assert.doesNotMatch(html, /PENNY/);
+  assert.match(view.get('#mandate-grid').innerHTML, /AAPL · MSFT · SPY · IJR/);
+  assert.equal(view.get('#mandate-version').textContent, 'Mandate 3 · Universe 2');
+  view.renderState({mandate:{universe:['SPY'], configuration_version:1, mandate_version:1}});
+  assert.equal(view.get('#mandate-version').textContent, 'Mandate 1 · Universe 1');
+  assert.doesNotMatch(view.get('#market-quotes').innerHTML, /AAPL|MSFT|IJR/);
+});
+
+test('malformed or absent universe and version metadata remain unavailable, never expand from quotes', () => {
+  const view = ui();
+  for (const universe of [undefined, null, [], 'AAPL,SPY', [null], [{}], ['SPY', 'SPY'], ['SPY', '<img src=x onerror=alert(1)>']]) {
+    view.renderState({mandate:{universe,mandate_version:'<script>bad()</script>',universe_version:null,configuration_version:2},latest_snapshot:{payload:{quotes:{SPY:{price:100}}}}});
+    assert.match(view.get('#market-quotes').innerHTML, /Approved universe unavailable/);
+    assert.doesNotMatch(view.get('#market-quotes').innerHTML, /quote-row|<img|<script>/);
+    assert.match(view.get('#mandate-grid').innerHTML, /Eligible universe<\/h3><strong>Unavailable/);
+    assert.equal(view.get('#mandate-version').textContent,'Mandate unavailable · Universe unavailable');
+  }
+  for (const value of [undefined,null,0,-1,1.5,'2',{},true]) {
+    view.renderState({mandate:{universe:['IJR'],mandate_version:value,configuration_version:value}});
+    assert.equal(view.get('#mandate-version').textContent,'Mandate unavailable · Universe unavailable');
+  }
+  view.renderState({mandate:{universe:['IJR']},latest_snapshot:{payload:{quotes:[null,{symbol:'IJR',price:'<script>bad()</script>',market_data_at:'\" onmouseover=\"bad()'}]}}});
+  assert.doesNotMatch(view.get('#market-quotes').innerHTML, /<script>|datetime="" onmouseover=/);
+  assert.match(view.get('#market-quotes').innerHTML, /&quot; onmouseover=&quot;bad\(\)/);
+  view.renderState({});
+  assert.match(view.get('#market-quotes').innerHTML,/Approved universe unavailable/);
 });
