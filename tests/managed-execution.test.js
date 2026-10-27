@@ -7,9 +7,9 @@ import {readCompleteHistory} from '../lib/history.js';
 import {transitionManaged,managedControl,MANAGED_RULES,MANAGED_CHECKS,MANAGED_AUTHORIZATION} from '../lib/managed-policy.js';
 import {inspectManagedInstrument,managedInstrumentCandidate,approveManagedInstrument,observeManaged} from '../lib/managed-instruments.js';
 import {seedManagedCoverage} from './managed-action-fixtures.js';
-import {executeManagedDecision} from '../lib/managed-execution.js';
+import {executeManagedDecision,managedStatus} from '../lib/managed-execution.js';
 import {reconcile,readLedger} from '../lib/reconciliation.js';
-import {submit} from '../lib/service.js';
+import {submit,state} from '../lib/service.js';
 import {usdNanos} from '../lib/precision.js';
 const now=()=>new Date().toISOString(),revision='c'.repeat(40),actor='managed-engine-fixture';
 const env={...testEnv,RELEASE_REVISION:revision,MANAGED_ENABLED:'true'};
@@ -112,4 +112,23 @@ test('later failed release evidence beforePOST and lease theft block submission 
  await assert.rejects(execute(f,d),/failed|pending/);assert.equal(f.broker.posts,0);assert.equal((await readCompleteHistory(f.db)).filter(e=>e.kind==='order_intent'&&e.payload.decision_id===d.id).length,1);
  const g=await fixture(t),gd=await decision(g,'managed-lease-theft',{qty:1});let stolen=false;g.broker.hook=async(u)=>{if(!stolen&&u.pathname==='/v2/stocks/trades/latest'){stolen=true;g.db.sqlite.prepare("UPDATE locks SET token='stolen' WHERE name='execution'").run();}};
  await assert.rejects(execute(g,gd),/lease/);assert.equal(g.broker.posts,0);
+});
+
+async function assertAccountBlocked(f){
+ const view=await state(f.db,now(),env),status=await managedStatus(f.db,env);
+ assert.equal(view.experiment.status,'paused');assert.equal(view.experiment.phase,'managed_blocked');
+ assert.match(view.operation.problem,/Awaiting order\/account checks/);assert.equal(status.problem,view.operation.problem);assert.equal(view.health.trading,'blocked');
+}
+test('both managed status views show unresolved open orders as awaiting account checks',async t=>{
+ const f=await fixture(t);await execute(f,await decision(f,'managed-status-open-order',{qty:1}));
+ const recon=await settle(f,'managed-status-open-recon');assert.equal(recon.payload.status,'blocked');await assertAccountBlocked(f);
+});
+test('both managed status views show unsupported corrections, but not closed or stale observations, as account blocks',async t=>{
+ const f=await fixture(t);await decision(f,'managed-status-observed-only',{qty:1});await settle(f,'managed-status-clean');
+ const latest=(await readCompleteHistory(f.db)).filter(e=>e.kind==='snapshot').at(-1);
+ const old=structuredClone(latest.payload);old.clock.is_open=false;old.clock.timestamp=new Date(Date.now()-3600000).toISOString();for(const q of Object.values(old.quotes))q.market_data_at=old.clock.timestamp;
+ await append(f.db,{id:'managed-status-closed-observation',kind:'snapshot',actor,payload:old});
+ assert.equal((await state(f.db,now(),env)).operation.problem,null);assert.equal((await managedStatus(f.db,env)).problem,null);
+ f.broker.activities.push({id:'managed-unsupported-correction',activity_type:'FILL',type:'trade_correction',order_id:'unsupported',symbol:'SPY',side:'buy',qty:'1',price:'500',transaction_time:now()});
+ const recon=await settle(f,'managed-status-correction');assert.equal(recon.payload.status,'blocked');await assertAccountBlocked(f);
 });
