@@ -1,0 +1,18 @@
+// Creates an isolated, offline review artifact. Never imports production service code.
+import { readFile, mkdir, writeFile } from 'node:fs/promises';
+const html = await readFile('web/index.html', 'utf8');
+const css = await readFile('web/styles.css', 'utf8');
+const app = await readFile('web/app.js', 'utf8');
+const fixture = {
+  as_of: '2026-10-27T14:00:00Z', experiment: { status: 'paused' },
+  portfolio: { value: 100000, cash: 100000, holdings: [], gain: null, total_return: null },
+  events: [{ id: 'isolated-review-only', kind: 'decision', created_at: '2026-10-27T13:00:00Z', payload: { title: 'Synthetic review: remain in cash', summary: 'Fixture content for layout review only.', action: 'hold', size: 0, thesis: 'A deliberately isolated thesis for inspecting disclosure layout.', counterargument: 'A recorded disagreement remains visible here.', candidates: [{ symbol: 'EXAMPLE', proposed_weight: 0.04, stance: 'Research only — not a holding or approved target' }], evidence: [{ title: 'Example source', url: 'https://example.com', observed_at: '2026-10-27T12:00:00Z', excerpt: 'Synthetic evidence, not a market observation.' }] } }],
+  latest_snapshot: { id: 'isolated-snapshot', kind: 'snapshot', created_at: '2026-10-27T13:00:00Z', payload: { quotes: { AAPL: { price: 100, market_data_at: '2026-10-27T13:00:00Z' } }, clock: { is_open: true, timestamp: '2026-10-27T13:00:00Z' } } },
+  mandate: { universe: ['AAPL', 'MSFT', 'SPY'], stock_limit: .1, etf_limit: .25, min_cash: .1, max_order: .05, gross_limit: .9 }
+};
+const harness = `const fixture = ${JSON.stringify(fixture)}; let reviewMode='empty'; window.fetch=async()=>{if(reviewMode==='error')throw Error('Isolated review failure');if(reviewMode==='loading')await new Promise(()=>{});return {ok:true,json:async()=>structuredClone(fixture)}};`;
+const controls = `<aside style="padding:12px;background:#ffe8ac;color:#172d3a;font:14px Arial">ISOLATED UI FIXTURE · No production access <label>State <select id="fixture-mode"><option>empty</option><option>positive</option><option>negative</option><option>unavailable</option><option>error</option><option>loading</option></select></label></aside>`;
+const handler = `document.querySelector('#fixture-mode').addEventListener('change',e=>{reviewMode=e.target.value;showMessage('');fixture.experiment.started_at=reviewMode==='empty'?null:'2026-10-27T13:30:00Z';fixture.portfolio.gain=reviewMode==='positive'?125:reviewMode==='negative'?-125:null;fixture.portfolio.total_return=fixture.portfolio.gain===null?null:fixture.portfolio.gain/100000;fixture.portfolio.value=reviewMode==='unavailable'?null:100000;fixture.portfolio.cash=['positive','negative'].includes(reviewMode)?96000:100000;fixture.portfolio.holdings=['positive','negative'].includes(reviewMode)?[{symbol:'EXAMPLE',qty:10,cost_basis:4000,market_value:4000,unrealized_pl:fixture.portfolio.gain,weight:.04}]:[];fixture.portfolio.holdings_status=reviewMode==='unavailable'?'unknown':'known';if(reviewMode==='loading'){$('#app-content').hidden=true;$('#loading').hidden=false;$('#loading').textContent='Loading isolated fixture…';}loadState();});`;
+await mkdir('outputs', { recursive: true });
+await writeFile('outputs/blue-design-review.html', html.replace('<link rel="stylesheet" href="/styles.css">', `<style>${css}</style>`).replace('<script src="/app.js" defer></script>', '').replace('<body>', `<body>${controls}`).replace('</body>', `<script>${harness}\n${app}\n${handler}</script></body>`));
+console.log('outputs/blue-design-review.html — offline fixture, no production calls');
