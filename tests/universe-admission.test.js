@@ -115,3 +115,46 @@ test('candidate evidence and favorable reconciliation cannot replace actual comp
  }
  assert.deepEqual(await records(db),history);
 });
+
+import {releaseCandidate,stageReleaseAttestation} from '../lib/universe-release.js';
+import {VALIDATION_CHECKS} from '../lib/validation-policy.js';
+async function reattestation(db,r,revision='e'.repeat(40)){
+ const env={...rolloutEnv,RELEASE_REVISION:revision},checks={};
+ for(const check of VALIDATION_CHECKS){const receipt=await append(db,{id:'new-release-'+check,kind:'verification',actor,payload:{check,revision,outcome:'passed',summary:'Isolated new-release fixture'}});checks[check]=receipt.id;}
+ const candidate=await releaseCandidate(db,env,{checks}),review_ids=[];
+ for(const author of ['new-release-review-a','new-release-review-b']){const receipt=await append(db,{id:author,kind:'verification',actor:author,payload:{check:'universe_release_review',outcome:'passed',revision,author,binding:candidate.binding,summary:'Synthetic unchanged-configuration review'}});review_ids.push(receipt.id);}
+ const payload={status:'approved',author:'manager',checks,review_ids,binding:candidate.binding};
+ return {env,payload,candidate,stage:()=>stageReleaseAttestation(db,env,{idempotency_key:'new-release-attestation',payload},actor)};
+}
+test('unchanged configuration re-attests a new release without new admission or reset and retains failed-evidence guards',async t=>{
+ const {db}=temporaryDatabase(t),r=await preparation(db),amendment=await admit(db,r);
+ await reconcile(db,rolloutEnv,'prior-v2-recon',actor,r.f.fetcher);
+ const oldPayload={...r.payload,mandate_version:2,amendment_id:amendment.id,configuration_hash:await policyDigest(2)};
+ const old=await stageRollout(db,rolloutEnv,{idempotency_key:'old-v2-approval',payload:oldPayload},actor);
+ const next=await reattestation(db,r);await assert.rejects(admissionAuthorization(await records(db),next.env.RELEASE_REVISION),/re-attestation/);
+ const receipt=await next.stage();assert.deepEqual(await next.stage(),receipt);
+ assert.equal((await admissionAuthorization(await records(db),next.env.RELEASE_REVISION)).release_attestation_id,receipt.id);
+ await assert.rejects(admissionAuthorization(await records(db),rolloutEnv.RELEASE_REVISION),/re-attestation/);
+ const review_ids=[];for(const author of ['new-pilot-review-a','new-pilot-review-b']){const e=await append(db,{id:author,kind:'verification',actor,payload:{check:'pilot_outcome_review',outcome:'passed',revision:next.env.RELEASE_REVISION,author,summary:'Same actual fixture pilot reviewed under new code',pilot_binding:r.payload.pilot_binding}});review_ids.push(e.id);}
+ await reconcile(db,next.env,'new-release-reconcile',actor,r.f.fetcher);
+ const continuation={...oldPayload,revision:next.env.RELEASE_REVISION,previous_approval_id:old.id,release_attestation_id:receipt.id,checks:next.payload.checks,review_ids};
+ await assert.rejects(stageRollout(db,next.env,{idempotency_key:'extended-release-rollout',payload:{...continuation,valid_until:new Date(Date.parse(oldPayload.valid_until)+1000).toISOString()}},actor),/bounded/);
+ await stageRollout(db,next.env,{idempotency_key:'new-release-rollout',payload:continuation},actor);
+ const d=await decisionChain(db,r.f,'new-code-ijr',{symbol:'IJR',size:1500,limit:10000});await reconcile(db,next.env,'new-code-decision-reconcile',actor,r.f.fetcher);
+ const pre=await rolloutPrerequisites(db,d.id,now(),next.env.RELEASE_REVISION);assert.equal(pre.budget.spent,500000000000n);assert.equal(pre.release_attestation_id,receipt.id);
+ assert.equal((await records(db)).filter(e=>e.kind==='mandate_amendment').length,1);assert.deepEqual(await getEvent(db,r.opening.id),r.opening);
+ await append(db,{id:'new-release-pending-check',kind:'verification',actor,payload:{check:'independent_code_review',revision:next.env.RELEASE_REVISION,outcome:'pending',summary:'Later evidence'}});
+ await assert.rejects(rolloutPrerequisites(db,d.id,now(),next.env.RELEASE_REVISION),/failed|unresolved|Superseding/);assert.equal(r.f.posts,1);
+});
+test('re-attestation rejects altered bindings, missing checks, non-independent reviewers and adverse original admission evidence',async t=>{
+ const {db}=temporaryDatabase(t),r=await preparation(db);await admit(db,r);const next=await reattestation(db,r);
+ for(const patch of [{binding:'{}'},{checks:{}},{review_ids:['new-release-review-a','new-release-review-a']},{author:'new-release-review-a'},{status:'pending'}])await assert.rejects(stageReleaseAttestation(db,next.env,{idempotency_key:'invalid-reattestation',payload:{...next.payload,...patch}},actor));
+ await append(db,{id:'original-admission-withdrawn',kind:'verification',actor,payload:{check:'universe_admission_review',binding:r.candidate.binding,outcome:'failed'}});
+ await assert.rejects(next.stage(),/failed|unresolved/);assert.equal((await records(db)).filter(e=>e.kind==='universe_release_attestation').length,0);
+});
+
+test('a later release cannot bypass a withdrawn prior re-attestation review',async t=>{
+ const {db}=temporaryDatabase(t),r=await preparation(db);await admit(db,r);const next=await reattestation(db,r);await next.stage();
+ await append(db,{id:'withdrawn-prior-release-review',kind:'verification',actor,payload:{check:'universe_release_review',binding:next.candidate.binding,outcome:'failed'}});
+ await assert.rejects(releaseCandidate(db,{...rolloutEnv,RELEASE_REVISION:'f'.repeat(40)},{checks:next.payload.checks}),/review failed|pending/);
+});

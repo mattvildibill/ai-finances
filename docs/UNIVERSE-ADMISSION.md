@@ -43,6 +43,21 @@ Only the exact official IJR product-page URL is newly allowed for typed primary 
 
 The one-share pilot remains version 1. Rollout remains capped at $10,000 cumulative purchases including the pilot and outstanding/ambiguous commitments, with $90,000 uncommitted cash. Sales never replenish the cumulative allowance. Stock/ETF/order/gross/cash caps and exact nano-dollar accounting remain unchanged. Admission cannot reset inception, permit a second pilot, enlarge the opening cap, or enable general trading.
 
-The single v1-to-v2 amendment is bound to its exact reviewed release. A later release revision blocks v2 execution until a separately reviewed re-attestation mechanism is implemented; this candidate does not pretend ordinary upgrades automatically inherit authorization. Accounting and GET-only recovery remain available; a withdrawn admission review does not erase held assets or revert history.
+The single v1-to-v2 amendment is bound to its exact reviewed release. A later release revision blocks v2 execution until the unchanged configuration is explicitly re-attested as described below; ordinary upgrades never automatically inherit authorization. Accounting and GET-only recovery remain available; a withdrawn admission review does not erase held assets or revert history.
 
 No migration is required. Actual IJR admission, release publication, runtime source evidence, authored approval, and real IJR fills are untested/not performed by this preparation work. Synthetic tests verify mechanisms, not those external facts.
+
+
+## Unchanged-configuration release re-attestation
+
+The successor supports `universe_admission` operations `release_candidate` and `reattest_release`, under the same private authorization. Neither changes the admitted configuration, accounting, permissions or order state.
+
+Candidate input is `{operation:"release_candidate", input:{checks}}`, where `checks` maps all eight existing validation check names to actual passed verification IDs for the new exact `RELEASE_REVISION`. Later failed/pending checks invalidate the pinned result. The returned canonical binding contains original amendment ID/digest, unchanged configuration hash/version, original and new revisions, predecessor attestation ID (or original amendment), and check IDs/digests.
+
+Two actual distinct reviewers submit verification records with `check:"universe_release_review"`, `outcome:"passed"`, new `revision`, exact `binding`, actual `author` and `summary`. They must follow the bound check records and differ from the staging manager author. Stage with `{operation:"reattest_release", input:{idempotency_key,payload:{status:"approved",author,checks,review_ids:[idA,idB],binding}}}`. The typed append-only `universe_release_attestation` stores that binding and request hash under lease/head fencing. Exact retries return the original receipt. Reuse/downgrade to an earlier revision is rejected.
+
+Original admission reviews remain authoritative and can still block. A later release cannot bypass a withdrawn prior re-attestation review. This bounded path does not implement remediation of withdrawn configuration/re-attestation approvals; that requires separate explicit review rather than an implicit override. Old code-check failures are release-specific; the new release requires its own actual eight checks.
+
+An existing v2 rollout can continue under the newly attested release only with an explicit successor approval containing `previous_approval_id`, `release_attestation_id`, unchanged `amendment_id`/`configuration_hash`, new revision-bound checks and pilot reviews. It retains the original pilot, New York session, no-later expiry and fixed limits. All historic spending and pending/ambiguous commitments remain reserved. New execution decisions must follow the new approval. An attestation by itself never authorizes a trade or extends the session.
+
+Cross-version review records must declare the same configuration as their exact canonical binding; incompatible adverse reviews are rejected instead of stored and ignored. A shared economic action may be confirmed only once across versions. Before admission, full official history is projected under version2; unresolved/duplicate economic definitions, pending adjustments or changes to existing portfolio/benchmark accounting block the amendment.

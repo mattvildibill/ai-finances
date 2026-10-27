@@ -51,7 +51,7 @@ test('admission security: candidate inspection is fixed-host GET-only and grants
 
 test('admission security: strict versions and existing private authorization remain unchanged',()=>{
  for(const version of [null,0,3,'1','2',{},true,NaN])assert.throws(()=>policyForVersion(version));
- assert.deepEqual(toolDefs.find(t=>t.name==='universe_admission').inputSchema.properties.operation.enum,['status','inspect','review_candidate','stage']);
+ assert.deepEqual(toolDefs.find(t=>t.name==='universe_admission').inputSchema.properties.operation.enum,['status','inspect','review_candidate','stage','release_candidate','reattest_release']);
  assert.throws(()=>authorize(new Request('https://example.invalid/mcp'),{}),/Sign in/);
  assert.throws(()=>authorize(new Request('https://example.invalid/mcp',{headers:{authorization:'Bearer wrong'}}),{SERVICE_TOKEN:'fixture-token'}),/Sign in/);
  assert.equal(authorize(new Request('https://example.invalid/mcp',{headers:{authorization:'Bearer fixture-token'}}),{SERVICE_TOKEN:'fixture-token'}),'cloud-service');
