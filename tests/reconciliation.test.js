@@ -135,7 +135,8 @@ test('closed orders are refreshed and disappeared activity remains a blocker', a
   const result = await reconcile(db, testEnv, 'after-disappearance', actor, f.fetcher);
   assert.ok(f.calls.some(c => c.url.includes('by_client_order_id')));
   assert.ok(result.payload.problems.some(p => p.code === 'activity_history_missing'));
-  assert.ok(result.payload.problems.some(p => p.code === 'fill_quantity_mismatch'));
+  assert.ok(result.payload.problems.some(p => p.code === 'closed_order_conflict'));
+  assert.equal((await readLedger(db)).status, 'blocked');
   assert.equal((await readLedger(db)).portfolio.cash_cents, 9995000);
 });
 test('conflicting activity versions remain blocked when omitted in a later response', async t => {
