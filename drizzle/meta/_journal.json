@@ -15,6 +15,13 @@
       "when": 1793074000000,
       "tag": "0001_immutable_journal",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1793077930213,
+      "tag": "0002_orange_hydra",
+      "breakpoints": true
     }
   ]
 }

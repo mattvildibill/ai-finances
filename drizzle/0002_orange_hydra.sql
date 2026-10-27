@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `events_single_inception` ON `events` (`kind`) WHERE "events"."kind" = 'experiment_opened';

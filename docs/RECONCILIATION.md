@@ -27,3 +27,7 @@ Initial production orders and reconciled fills support **whole shares only**. A 
 Tests use synthetic broker responses against real SQLite migrations. They cover partial fills, cancellation, duplicate retries, missing activities, raw revisions, external activity, fractional-cent rejection, pagination failures, replay, and prospective benchmark initialization. Actual hosted invocation is separately recorded in the experiment journal.
 
 API contracts checked on 27 October 2026: [Alpaca FILL activities endpoint](https://docs.alpaca.markets/us/reference/getaccountactivitiesbyactivitytype-1), [account activity fields](https://docs.alpaca.markets/us/docs/account-activities), and [activity pagination](https://docs.alpaca.markets/us/reference/getaccountactivities-2).
+
+## Staged readiness continuation
+
+See [the continuation report](LAUNCH-CONTINUATION-2026-10-27.md) for revised execution fencing, ledger-derived state, single-inception migration and actual test results. [The corporate-action path](CORPORATE-ACTION-PATH.md) describes the unwired evidence collector and remaining entitlement/economic-ledger work. Neither feature enables trading or establishes total-return support.

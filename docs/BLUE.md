@@ -31,3 +31,7 @@ Retry the identical key and payload. A changed payload with an existing key is r
 ## Credentials and scope
 
 Alpaca secrets reside in Sites production runtime. The Site is owner-private. Native tool calls authenticate through the existing ChatGPT connection. No secret is included here. An optional separate service interface requires BOTH Sites service access and its server-only service secret; that route was not used for the verified native/scheduled flow and is not needed by blue.
+
+## Undeployed readiness work
+
+The staged source continuation is documented in [LAUNCH-CONTINUATION-2026-10-27.md](LAUNCH-CONTINUATION-2026-10-27.md). Execution remains hard-disabled. New buy/sell proposals in that release require explicit `limit_price_cents` and a timezone-qualified future `valid_until`; no quote-derived manager limit is inferred. Do not copy synthetic test approvals, fills or action evidence into official records.

@@ -75,9 +75,9 @@ function renderState(state) {
   $('#capital-state').textContent = started ? (paused ? 'PAUSED' : 'PAPER PORTFOLIO') : 'PRE-LAUNCH';
   $('#capital-title').firstChild.textContent = started ? 'PORTFOLIO VALUE ' : 'EXPERIMENT CAPITAL ';
   $('#capital-context').textContent = started ? `Since ${formatTime(experiment.started_at, true)}` : 'Allocated starting cash · Official experiment not started';
-  $('#return-value').textContent = started ? percent(portfolio.total_return ?? (value !== undefined ? (Number(value) / Number(experiment.initial_cash || 100000) - 1) : null)) : 'Not started';
+  $('#return-value').textContent = started ? percent(portfolio.total_return) : 'Not started';
   $('#return-value').style.fontSize = started ? '' : '27px';
-  $('#return-detail').textContent = started ? `${money(portfolio.gain ?? portfolio.total_gain)} since inception` : 'Performance starts at inception.';
+  $('#return-detail').textContent = started ? `${money(portfolio.gain ?? portfolio.total_gain)} since inception · ${portfolio.performance_basis || 'Performance basis unavailable'}` : 'Performance starts at inception.';
   $('#relative-return').textContent = started && state.benchmark?.excess_return !== undefined ? percent(state.benchmark.excess_return) : state.benchmark?.status === 'not_started' || !started ? 'Not started' : 'Not available';
   const cashRatio = Number(value) > 0 && cash !== undefined ? Number(cash) / Number(value) : null;
   $('#cash-percent').textContent = cashRatio === null ? 'Waiting for accounting state' : `${percent(cashRatio)} of portfolio`;
@@ -117,7 +117,7 @@ function renderMarket(state) {
 
 function renderHoldings(portfolio, started) {
   const holdings = Array.isArray(portfolio.holdings) ? portfolio.holdings : [];
-  $('#holdings-count').textContent = `${holdings.length} position${holdings.length === 1 ? '' : 's'}`;
+  $('#holdings-count').textContent = portfolio.holdings_status === 'unknown' ? 'Holdings unavailable' : `${holdings.length} position${holdings.length === 1 ? '' : 's'}`;
   $('#holdings-body').innerHTML = holdings.map((holding) => {
     const marketValue = holding.market_value ?? holding.value;
     const gain = holding.unrealized_pl ?? holding.unrealized_gain;
@@ -125,7 +125,7 @@ function renderHoldings(portfolio, started) {
     return `<tr><td><strong>${escapeHTML(holding.symbol)}</strong></td><td>${number(holding.qty ?? holding.quantity, 8)}</td><td>${money(holding.cost_basis)}</td><td>${money(marketValue)}</td><td class="${Number(gain) < 0 ? 'negative' : Number(gain) > 0 ? 'positive' : ''}">${money(gain)}</td><td>${percent(weight)}</td></tr>`;
   }).join('');
   $('#holdings-empty').hidden = holdings.length > 0;
-  $('#holdings-empty p').textContent = started ? 'The portfolio currently holds cash. Holding cash is a valid investment decision.' : 'No holdings in the official experiment. Nothing is being invested while it is paused.';
+  $('#holdings-empty p').textContent = portfolio.holdings_status === 'unknown' ? 'Accounting is blocked; holdings are unavailable pending reconciliation.' : started ? 'The portfolio currently holds cash. Holding cash is a valid investment decision.' : 'No holdings in the official experiment. Nothing is being invested while it is paused.';
 }
 
 function renderChart(state, started) {
@@ -152,7 +152,7 @@ function renderRisk(state, started) {
   const weights = positions.map((entry) => entry.weight ?? (Number(state.portfolio?.value) > 0 ? Number(entry.market_value ?? entry.value) / Number(state.portfolio.value) : null)).filter((value) => value !== null && Number.isFinite(value));
   const concentration = weights.length ? Math.max(...weights) : positions.length === 0 ? 0 : null;
   const items = [
-    { label: 'Largest position', value: percent(risk.largest_position ?? concentration), note: positions.length ? 'Share of portfolio value' : 'No invested exposure' },
+    { label: 'Largest position', value: percent(risk.largest_position), note: state.portfolio?.holdings_status === 'unknown' ? 'Accounting unavailable' : positions.length ? 'Share of portfolio value' : 'No invested exposure' },
     { label: 'Max. drawdown', value: started ? percent(risk.max_drawdown) : '—', note: started ? 'Peak-to-trough decline' : 'Requires active history' },
     { label: 'Annualized volatility', value: started ? percent(risk.annualized_volatility) : '—', note: 'Requires sufficient daily returns' },
   ];
