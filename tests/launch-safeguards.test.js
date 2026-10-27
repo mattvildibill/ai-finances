@@ -208,3 +208,40 @@ test('interrupted refresh cannot certify a newer drifting snapshot with an older
  await append(db,{id:'new-flat-snapshot',kind:'snapshot',actor,payload:original.payload});assert.equal((await state(db)).portfolio.comparison_complete,false);
  await append(db,{id:'flat-fresh-reconciliation',kind:'reconciliation',actor,payload:{status:'reconciled',ledger_status:'ready',problems:[]}});assert.equal((await state(db)).portfolio.comparison_complete,true);
 });
+
+test('refresh cannot append failure or snapshot between final journal check and broker submission',async t=>{
+ const {db}=temporaryDatabase(t);await seed(db);const engine=await privateEngine();const f=tradingBroker();
+ const {refresh}=await import('../lib/service.js');const prepare=db.prepare.bind(db);let attempted=false;
+ db.prepare=(sql)=>{const statement=prepare(sql);if(sql==='SELECT MAX(seq) AS seq FROM events'){
+  const first=statement.first.bind(statement);statement.first=async()=>{const head=await first();attempted=true;
+   await assert.rejects(refresh(db,testEnv,'concurrent-refresh-failure',actor,async()=>{throw new Error('Synthetic source failure');}),/already in progress/);
+   assert.equal(await getEvent(db,'concurrent-refresh-failure'),null);return head;};
+ }return statement;};
+ await engine(db,executionEnv,'decision-fixture-001',actor,f.fetcher);
+ assert.equal(attempted,true);assert.equal(f.posts,1);
+ assert.equal((await listEvents(db,now())).filter(e=>e.kind==='refresh_failed').length,0);
+});
+
+test('saved expired decision retries return original receipt but execution still rejects expiry',async t=>{
+ const {db}=temporaryDatabase(t);await seed(db);const {submit}=await import('../lib/service.js');
+ const original=await getEvent(db,'decision-fixture-001');
+ const payload={...original.payload,title:'Archived valid decision',summary:'Synthetic previously accepted decision',valid_until:'2020-01-01T00:00:00Z'};
+ const receipt=await append(db,{id:'archived-decision-001',kind:'decision',payload,actor});
+ assert.deepEqual(await submit(db,{idempotency_key:receipt.id,kind:'decision',payload},actor),receipt);
+ await assert.rejects(submit(db,{idempotency_key:receipt.id,kind:'decision',payload:{...payload,size:200}},actor),/different content/);
+ await assert.rejects(executionDecision(db,receipt.id),/expiry/);
+});
+
+test('session closing during final asynchronous lease renewal prevents broker POST',async t=>{
+ const {db}=temporaryDatabase(t);await seed(db);const engine=await privateEngine();const f=tradingBroker();
+ const prepare=db.prepare.bind(db);let arm=false;let advanced=false;
+ db.prepare=(sql)=>{const statement=prepare(sql);
+  if(sql==='SELECT MAX(seq) AS seq FROM events'){const first=statement.first.bind(statement);statement.first=async()=>{const head=await first();arm=true;return head;};}
+  if(sql.startsWith('UPDATE locks SET expires_at=')){
+   const bind=statement.bind.bind(statement);statement.bind=(...args)=>{const bound=bind(...args);const run=bound.run.bind(bound);bound.run=async()=>{const result=await run();if(arm&&!advanced){advanced=true;t.mock.timers.enable({apis:['Date'],now:Date.now()+3600001});}return result;};return bound;};
+  }return statement;
+ };
+ await assert.rejects(engine(db,executionEnv,'decision-fixture-001',actor,f.fetcher),/expired before submission/);
+ assert.equal(advanced,true);assert.equal(f.posts,0);
+ t.mock.timers.reset();assert.equal((await listEvents(db,now())).filter(e=>e.kind==='order_intent').length,1);
+});

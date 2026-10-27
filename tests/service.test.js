@@ -148,3 +148,14 @@ test('new corporate-action and activation tools retain authentication and hard-d
  }
  assert.equal((await listEvents(db,new Date().toISOString())).length,0);
 });
+
+test('refresh holds the execution lease during source reads and fences failure receipts', async t => {
+ const {db}=temporaryDatabase(t);let checked=false;
+ await assert.rejects(refresh(db,testEnv,'serialized-failure-001',actor,async()=>{
+  checked=true;await assert.rejects(acquire(db,'execution','competing-execution'),/already in progress/);
+  throw new Error('Synthetic source error');
+ }),/Synthetic source error/);
+ assert.equal(checked,true);
+ assert.equal((await listEvents(db,now())).filter(e=>e.kind==='refresh_failed').length,1);
+ await acquire(db,'execution','after-refresh');await release(db,'execution','after-refresh');
+});

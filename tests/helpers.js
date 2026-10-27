@@ -28,7 +28,7 @@ export const testEnv = { ALPACA_API_KEY: 'fixture-key-not-a-credential', ALPACA_
 export function brokerFixture(overrides = {}) {
   const now = new Date().toISOString();
   const account = { id: 'fixture-account-1234', status: 'ACTIVE', currency: 'USD', account_blocked: false, trading_blocked: false, cash: '100000', equity: '100000', portfolio_value: '100000', ...overrides.account };
-  const clock = { timestamp: now, is_open: true, next_open: now, next_close: now, ...overrides.clock };
+  const clock = { timestamp: now, is_open: true, next_open: new Date(Date.parse(now)+86400000).toISOString(), next_close: new Date(Date.parse(now)+3600000).toISOString(), ...overrides.clock };
   const trades = Object.fromEntries(['AAPL', 'MSFT', 'SPY'].map((symbol, i) => [symbol, { t: now, p: 100 + i, x: 'V', ...overrides.trade }]));
   if (overrides.missingSymbol) delete trades[overrides.missingSymbol];
   const calls = [];

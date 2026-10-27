@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { moneyToCents, initialPortfolio, applyFill, applyDistribution, applySplit, portfolioValue, validateOrder, createBenchmark, riskMetrics, PAPER_ORIGIN } from '../lib/finance.js';
 const at = '2026-10-26T15:00:00Z';
 const fill = (id, side = 'buy', quantity = 10, price_cents = 10000, fee_cents = 0) => ({ id, symbol: 'AAPL', side, quantity, price_cents, fee_cents, occurred_at: at, observed_at: at });
-const context = () => ({ runtime_verified: true, experiment_status: 'active', paper_endpoint: PAPER_ORIGIN, now: at, clock: { timestamp: at, is_open: true }, portfolio: initialPortfolio(), prices: { AAPL: { price_cents: 10000, market_time: at }, SPY: { price_cents: 50000, market_time: at } }, open_orders: [] });
+const context = () => ({ runtime_verified: true, experiment_status: 'active', paper_endpoint: PAPER_ORIGIN, now: at, clock: { timestamp: at, is_open: true, next_close: '2026-10-26T20:00:00Z', next_open: '2026-10-27T13:30:00Z' }, portfolio: initialPortfolio(), prices: { AAPL: { price_cents: 10000, market_time: at }, SPY: { price_cents: 50000, market_time: at } }, open_orders: [] });
 const order = { symbol: 'AAPL', side: 'buy', quantity: 10, limit_price_cents: 10000, type: 'limit', time_in_force: 'day' };
 test('money conversion is exact and refuses silent precision loss', () => {
   assert.equal(moneyToCents('100000.00'), 10000000); assert.equal(moneyToCents('0.29'), 29); assert.equal(moneyToCents('-1.01'), -101);
@@ -54,7 +54,9 @@ test('live API, paused runtime, unknown orders, and closed sessions fail closed'
 test('freshness rejects stale/future quote and market clock', () => {
   for (const t of ['2026-10-26T14:57:59Z', '2026-10-26T15:00:06Z', null]) {
     const c = context(); c.prices.AAPL.market_time = t; assert.equal(validateOrder(order, c).ok, false);
-    assert.equal(validateOrder(order, { ...context(), clock: { timestamp: t, is_open: true } }).ok, false);
+    const clockResult = validateOrder(order, { ...context(), clock: { ...context().clock, timestamp: t } });
+    assert.equal(clockResult.ok, false);
+    assert.ok(clockResult.errors.some(error => error.startsWith('Market clock')));
   }
 });
 test('a stale held symbol blocks trading even if order symbol is fresh', () => {
@@ -114,4 +116,39 @@ test('modeled distributions never fund orders and increase the conservative econ
  const c=context();c.portfolio={...initialPortfolio(),cash_cents:1000200,holdings:{SPY:{quantity:180,cost_cents:9000000}}};c.prices.AAPL.price_cents=100;
  const small={...order,quantity:1,limit_price_cents:100};assert.equal(validateOrder(small,c).ok,true);
  const result=validateOrder(small,{...c,modeled_income_cents:1000000});assert.equal(result.ok,false);assert.ok(result.errors.some(e=>e.includes('cash reserve')));
+});
+
+test('fresh open clock cannot authorize execution at or after its recorded session close', () => {
+  const c = context();
+  c.clock.timestamp = '2026-10-26T14:59:30Z';
+  for (const close of ['2026-10-26T14:59:50Z', at]) {
+    c.clock.next_close = close;
+    const result = validateOrder(order, c);
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some(error => error.includes('recorded close')));
+    assert.ok(!result.errors.some(error => error.includes('stale')));
+  }
+  c.clock.next_close = '2026-10-26T15:00:00.001Z';
+  assert.equal(validateOrder(order, c).ok, true);
+});
+
+test('missing, timezone-free, invalid or inconsistent open-session boundaries fail closed', () => {
+  for (const key of ['next_open', 'next_close']) {
+    for (const value of [undefined, null, 'not-a-date', '2026-10-26T20:00:00']) {
+      const c = context(); c.clock[key] = value;
+      const result = validateOrder(order, c);
+      assert.equal(result.ok, false, `${key}=${value}`);
+      assert.ok(result.errors.some(error => error.includes('boundaries')));
+    }
+  }
+  for (const patch of [
+    { next_open: '2026-10-26T19:00:00Z' },
+    { next_open: '2026-10-26T20:00:00Z' },
+    { timestamp: '2026-10-26T15:00:01Z', next_close: '2026-10-26T15:00:00.500Z' },
+  ]) {
+    const c = context(); Object.assign(c.clock, patch);
+    const result = validateOrder(order, c);
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some(error => error.includes('boundaries')));
+  }
 });
