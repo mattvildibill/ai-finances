@@ -338,3 +338,13 @@ test('simplified dashboard retains blocked-state warnings, SPY explanation and u
  view.renderState({experiment:{status:'paused',started_at:'2026-10-27T13:30:00Z'},operation:{authorization:'expired'},account_drift:true,portfolio:{}});assert.equal(view.get('#pause-detail').textContent,'Account checks need attention. No new trades.');
  const page=readFileSync(new URL('../web/index.html',import.meta.url),'utf8');assert.match(page,/<option value="investment" selected>/);assert.match(page,/GAIN \/ LOSS/);assert.match(page,/What we own/);
 });
+
+
+test('managed standing authority displays closed session separately from blocked accounting and keeps chart visible',()=>{
+ const v=ui(),base={experiment:{status:'active',started_at:'2026-10-27T13:31:45Z'},portfolio:{holdings:{}},mandate:{managed_mode:true,universe:['SPY']},operation:{mode:'managed-paper',enabled:true,problem:null,market_session_observation:{fresh:true,is_open:false}},events:[]};
+ v.renderState(base);assert.equal(v.get('#operations-status').textContent,'Enabled · market closed');
+ v.renderState({...base,operation:{...base.operation,problem:'Accounting discrepancy'}});assert.equal(v.get('#operations-status').textContent,'Needs attention');
+ v.renderState({...base,operation:{...base.operation,market_session_observation:{fresh:false,is_open:false}}});assert.equal(v.get('#operations-status').textContent,'Enabled · fresh trade checks required');
+ const html=readFileSync(new URL('../web/index.html',import.meta.url),'utf8');
+ const before=html.slice(0,html.indexOf('id="performance-chart"'));assert.equal((before.match(/<details[ >]/g)||[]).length,(before.match(/<\/details>/g)||[]).length);
+});

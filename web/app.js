@@ -97,7 +97,7 @@ function renderState(state) {
   $('#cash-track').style.width = `${cashRatio === null ? 0 : Math.min(100, Math.max(0, cashRatio * 100))}%`;
   $('#pause-banner').hidden = !paused || !statusKnown;
   $('#pause-detail').textContent = state.account_drift || state.accounting?.status === 'blocked' ? 'Account checks need attention. No new trades.' : state.operation?.authorization === 'expired' ? 'Today’s trading permission has ended. Holdings stay invested; a new review is needed before buying again.' : 'No new trades until the required checks pass.';
-  $('#operations-status').textContent = state.operation?.mode==='managed-paper' ? (state.operation.problem ? 'Needs attention' : state.operation.enabled ? 'Managed paper portfolio · trade checks required' : 'Managed trading not enabled') : !statusKnown ? 'Unverified' : state.operation?.authorization==='expired'?'Session authorization expired':state.operation?.authorization==='recorded'?'Authorization recorded · runtime checks required':paused ? 'Paused' : 'Active · paper only';
+  $('#operations-status').textContent = state.operation?.mode==='managed-paper' ? (state.operation.problem ? 'Needs attention' : state.operation.enabled ? (state.operation.market_session_observation?.fresh && state.operation.market_session_observation?.is_open===false ? 'Enabled · market closed' : 'Enabled · fresh trade checks required') : 'Managed trading not enabled') : !statusKnown ? 'Unverified' : state.operation?.authorization==='expired'?'Session authorization expired':state.operation?.authorization==='recorded'?'Authorization recorded · runtime checks required':paused ? 'Paused' : 'Active · paper only';
   renderMarket(state);
   renderHoldings(portfolio, started);
   renderChart(state, started, unstarted);
