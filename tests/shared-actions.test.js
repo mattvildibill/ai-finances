@@ -50,11 +50,11 @@ test('changed raw version and unsupported notice block even before an approval i
  await append(db,{id:'revised-raw-page',kind:'corporate_action_page',actor,payload:{response:{corporate_actions:{cash_dividends:[{...raw,rate:'1.50'}],spin_offs:[{id:'unsupported',symbol:'SPY',cusip:'fixture-cusip',ex_date:'2026-10-06'}]}}}});
  const result=await readLedger(db);assert.equal(result.status,'blocked');assert.ok(result.problems.some(p=>/Conflicting/.test(p.message)));assert.ok(result.problems.some(p=>/Unsupported/.test(p.message)));
 });
-test('confirmation rejects missing independent review and issuer mismatches',async t=>{
+test('confirmation rejects missing independent review and primary source mismatches',async t=>{
  const {db}=temporaryDatabase(t);const {input}=await seedAction(db,dividend('review-binding'),{confirm:false});
  await assert.rejects(confirmCorporateAction(db,{...input,review_ids:[input.review_ids[0],input.review_ids[0]]},'action-manager'),/independent/);
  await assert.rejects(confirmCorporateAction(db,input,'action-reviewer-1'),/Independent/);
- await assert.rejects(confirmCorporateAction(db,{...input,source_id:'missing-source'},'action-manager'),/issuer/);
+ await assert.rejects(confirmCorporateAction(db,{...input,source_id:'missing-source'},'action-manager'),/primary receipt/);
 });
 test('same-day split/dividend combination remains blocked without an explicit rate-ordering policy',async t=>{
  const {db}=temporaryDatabase(t);await opening(db);await seedAction(db,{id:'same-day-split',symbol:'SPY',cusip:'fixture-cusip',new_rate:'2',old_rate:'1',ex_date:'2026-10-05'},{type:'forward_splits'});await seedAction(db,dividend('same-day-dividend'));
