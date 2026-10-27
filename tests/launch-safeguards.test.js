@@ -102,11 +102,11 @@ test('activation preflight never mutates or approves a release with unmet eviden
  assert.ok(result.problems.some(p=>p.includes('revision')));assert.equal(result.gate,'hard_disabled');
  assert.equal((await listEvents(db,now())).length,before.length);
 });
-test('public state derives ledger holdings and marks; stale prices suppress values without losing quantities',async t=>{
+test('public state preserves ledger quantities but suppresses marks when broker snapshot still predates the fill',async t=>{
  const {db}=temporaryDatabase(t);const start=await seed(db);
  await append(db,{id:'ledger-fill-fixture',kind:'ledger_fill',actor,payload:{fill:{id:'fill-view-001',symbol:'AAPL',side:'buy',quantity:2,price_cents:10000,occurred_at:start,observed_at:now()}}});
  await append(db,{id:'post-fill-reconciliation',kind:'reconciliation',actor,payload:{status:'reconciled',ledger_status:'ready',problems:[]}});
- const current=await state(db);assert.equal(current.experiment.started_at,start);assert.equal(current.experiment.status,'paused');assert.equal(current.portfolio.cash,99800);assert.equal(current.portfolio.holdings[0].quantity,2);assert.equal(current.portfolio.value,100000);assert.equal(current.account_drift,true);assert.equal(current.benchmark.status,'incomplete');
+ const current=await state(db);assert.equal(current.experiment.started_at,start);assert.equal(current.experiment.status,'paused');assert.equal(current.portfolio.cash,99800);assert.equal(current.portfolio.holdings[0].quantity,2);assert.equal(current.portfolio.value,null);assert.equal(current.account_drift,true);assert.equal(current.benchmark.status,'unavailable');
  const stale=await state(db,new Date(Date.now()+121000).toISOString());assert.equal(stale.portfolio.value,null);assert.equal(stale.portfolio.total_return,null);assert.equal(stale.portfolio.cash,99800);assert.equal(stale.portfolio.holdings[0].quantity,2);assert.equal(stale.benchmark.value,null);assert.equal(stale.risk.largest_position,null);
 });
 test('blocked ledger never displays invented initial balances or a reassuring empty portfolio',async t=>{

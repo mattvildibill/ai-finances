@@ -43,3 +43,9 @@ The staged source continuation is documented in [LAUNCH-CONTINUATION-2026-10-27.
 ## Ongoing agent follow-through — 27 October 2026
 
 Use [AGENT-OPERATING-FLOW.md](AGENT-OPERATING-FLOW.md) for the requested bounded after-session research, skeptical evidence review, portfolio-risk assessment and independent technical review when code changes. It adds a Blue Capital-only 180-day growth objective and broad-market research without expanding tradable assets or relaxing limits. Its dated automation section distinguishes current configuration, denied prompt-edit access and parent-reported temporary launch reviews; earlier handoff statements above are historical context, not proof of current enablement or repeated operation. Read actual runtime state and recorded pilot/rollout authorizations before any action. This documentation update changes neither production nor automation.
+
+## Ongoing operating state and candidate continuation — 27 October 2026
+
+The early paused/unstarted instructions above describe historical preparation, not the current portfolio. Always read native state and immutable history. The actual experiment began prospectively on27October; original opening, SPY comparator and real paper fills must never be recreated or backdated. General execution remains disabled; bounded session approvals and their expiries determine available supervised operations.
+
+The ongoing continuation candidate separates durable admission governance from fresh post-review preflight, provides explicit reviewed next-session authorization under the unchanged cumulative cap, and displays verified observed valuation history. See UNIVERSE-ADMISSION.md and OPENING-ROLLOUT.md for exact schemas. Deployment/implementation alone does not stage any authorization or admit an asset. Old snapshots remain observations, not official closes; stale prices may be displayed with their historical cutoff but cannot authorize a trade.

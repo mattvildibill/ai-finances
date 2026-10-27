@@ -290,3 +290,14 @@ test('malformed or absent universe and version metadata remain unavailable, neve
   view.renderState({});
   assert.match(view.get('#market-quotes').innerHTML,/Approved universe unavailable/);
 });
+
+test('observed NAV dots expose timestamped values without pretending continuous lines or official closes',()=>{
+ const view=ui();const points=[{at:'2026-10-27T19:59:36Z',value:100008.42,benchmark_value:100270.40,snapshot_id:'actual-fixture-1',official_close:false},{at:'2026-10-27T20:00:59Z',value:100007.92,benchmark_value:100257.40,snapshot_id:'actual-fixture-2',official_close:false,valuation_status:'last_known'}];
+ view.renderChart({valuation_history:{schema:'observed-nav-v1',points,interpolation:false}},true);
+ const html=view.get('#performance-chart').innerHTML;assert.match(html,/<svg/);assert.equal((html.match(/<circle /g)||[]).length,4);assert.doesNotMatch(html,/<polyline|<path/);assert.match(html,/100,008.42/);assert.match(html,/actual-fixture-2/);assert.match(view.get('#chart-note').textContent,/Not official closes/);
+ points[0].snapshot_id='<script>unsafe</script>';view.renderChart({valuation_history:{schema:'observed-nav-v1',points}},true);assert.doesNotMatch(view.get('#performance-chart').innerHTML,/<script>/);
+});
+test('last verified historical NAV is separated from current unknown accounting',()=>{
+ const view=ui();view.renderState({as_of:'2026-10-27T21:00:00Z',experiment:{status:'paused',started_at:'2026-10-27T13:31:45Z'},portfolio:{value:null,cash:null,holdings:[],holdings_status:'unknown',valuation_status:'unavailable'},last_verified_valuation:{at:'2026-10-27T20:00:59Z',value:100007.92,cash:96160.02}});
+ assert.equal(view.get('#portfolio-value').textContent,'$100,007.92');assert.equal(view.get('#capital-title').firstChild.textContent,'LAST VERIFIED VALUE ');assert.match(view.get('#capital-context').textContent,/Historical observation/);assert.equal(view.get('#cash-value').textContent,'—');assert.equal(view.get('#invested-value').textContent,'—');assert.equal(view.get('#return-value').textContent,'—');
+});

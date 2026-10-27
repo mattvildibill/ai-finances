@@ -76,13 +76,14 @@ function renderState(state) {
   const paused = experiment.status !== 'active' && experiment.status !== 'running';
   const value = presentOrLegacy(portfolio.value, portfolio.equity);
   const cash = portfolio.cash;
-  $('#portfolio-value').textContent = money(value);
-  $('#state-time').textContent = `State · ${formatTime(state.as_of)}${portfolio.valuation_status === 'unavailable' ? ' · Valuation unavailable' : ''}`;
+  const historical = !numeric(value) && state.last_verified_valuation && numeric(state.last_verified_valuation.value) ? state.last_verified_valuation : null;
+  $('#portfolio-value').textContent = money(historical ? historical.value : value);
+  $('#state-time').textContent = `State · ${formatTime(state.as_of)}${portfolio.valuation_status === 'unavailable' ? ' · Valuation unavailable' : portfolio.valuation_status === 'last_known' ? ' · Last-known marks' : ''}`;
   $('#invested-value').textContent = knownRatio(cash, value) === null ? '—' : money(Number(value) - Number(cash));
   $('#cash-value').textContent = money(cash);
-  $('#capital-state').textContent = !statusKnown ? 'UNVERIFIED' : started ? (paused ? 'PAUSED' : 'PAPER PORTFOLIO') : unstarted ? 'PRE-LAUNCH' : 'UNVERIFIED';
-  $('#capital-title').firstChild.textContent = unstarted ? 'OPENING CAPITAL ' : 'TOTAL VALUE ';
-  $('#capital-context').textContent = started ? `Official ledger · Since ${formatTime(experiment.started_at, true)} · Modeled comparison NAV ${money(portfolio.economic_value)}` : unstarted ? 'Allocated starting cash · Official experiment not started' : 'Experiment state unavailable';
+  $('#capital-state').textContent = !statusKnown ? 'UNVERIFIED' : started ? (state.operation?.authorization==='expired'?'SESSION EXPIRED':paused ? 'PAUSED' : 'PAPER PORTFOLIO') : unstarted ? 'PRE-LAUNCH' : 'UNVERIFIED';
+  $('#capital-title').firstChild.textContent = unstarted ? 'OPENING CAPITAL ' : historical ? 'LAST VERIFIED VALUE ' : 'TOTAL VALUE ';
+  $('#capital-context').textContent = historical ? `Historical observation · ${formatTime(historical.at)} · Current valuation unavailable; cash and holdings below are separate.` : started ? `Official ledger · ${portfolio.valuation_status === 'last_known' ? 'Last known' : 'Observed'} ${formatTime(portfolio.observation?.observed_at || portfolio.as_of, true)} · Not an official close` : unstarted ? 'Allocated starting cash · Official experiment not started' : 'Experiment state unavailable';
   const gain = presentOrLegacy(portfolio.gain, portfolio.total_gain);
   $('#return-value').textContent = started ? money(gain) : unstarted ? 'Not started' : '—';
   $('#return-value').classList.toggle('negative', started && numeric(gain) && Number(gain) < 0);
@@ -96,7 +97,7 @@ function renderState(state) {
   $('#cash-track').style.width = `${cashRatio === null ? 0 : Math.min(100, Math.max(0, cashRatio * 100))}%`;
   $('#pause-banner').hidden = !paused || !statusKnown;
   $('#pause-detail').textContent = experiment.pause_reason || (started ? 'New trading is paused. Existing records remain available for inspection.' : 'Awaiting verified inception.');
-  $('#operations-status').textContent = !statusKnown ? 'Unverified' : paused ? 'Paused' : 'Active · paper only';
+  $('#operations-status').textContent = !statusKnown ? 'Unverified' : state.operation?.authorization==='expired'?'Session authorization expired':state.operation?.authorization==='recorded'?'Authorization recorded · runtime checks required':paused ? 'Paused' : 'Active · paper only';
   renderMarket(state);
   renderHoldings(portfolio, started);
   renderChart(state, started, unstarted);
@@ -155,16 +156,28 @@ function renderHoldings(portfolio, started) {
 }
 
 function renderChart(state, started, unstarted = state.experiment?.started_at === null && state.experiment?.phase === 'unstarted') {
-  // /api/state provides the latest valuation, not a chronological NAV series.
-  $('#performance-chart').innerHTML = `<div class="chart-empty"><span aria-hidden="true"></span><strong>${unstarted ? 'Not started' : 'Performance history unavailable'}</strong><p>${unstarted ? 'Awaiting inception.' : 'No verified NAV series supplied.'}</p></div>`;
-  $('#chart-note').textContent = 'No portfolio or SPY series available.';
+  const history=state.valuation_history;
+  const points=history?.schema==='observed-nav-v1'&&Array.isArray(history.points)?history.points.filter(p=>Number.isFinite(Date.parse(p.at))&&numeric(p.value)&&numeric(p.benchmark_value)&&Number(p.value)>0&&Number(p.benchmark_value)>0&&p.official_close===false&&(!Number.isFinite(Date.parse(state.as_of))||Date.parse(p.at)<=Date.parse(state.as_of))):[];
+  if(!started||!points.length){
+    $('#performance-chart').innerHTML = `<div class="chart-empty"><span aria-hidden="true"></span><strong>${unstarted ? 'Not started' : 'Performance history unavailable'}</strong><p>${unstarted ? 'Awaiting inception.' : 'No verified NAV series supplied.'}</p></div>`;
+    $('#chart-note').textContent = history?.reason || 'No portfolio or SPY series available.';
+    return;
+  }
+  const width=640,height=240,pad=35,times=points.map(p=>Date.parse(p.at)),values=points.flatMap(p=>[Number(p.value),Number(p.benchmark_value)]),lo=Math.min(...values),hi=Math.max(...values),spread=Math.max(hi-lo,1),first=Math.min(...times),last=Math.max(...times);
+  const x=t=>pad+(width-2*pad)*(last===first?.5:(t-first)/(last-first));
+  const y=v=>height-pad-(height-2*pad)*(v-lo+spread*.08)/(spread*1.16);
+  const dots=points.map(p=>['value','benchmark_value'].map((key,i)=>`<circle cx="${x(Date.parse(p.at)).toFixed(2)}" cy="${y(Number(p[key])).toFixed(2)}" r="3.5" fill="${i?'#947338':'#164f78'}"><title>${escapeHTML(i?'SPY comparator':'Blue')}: ${escapeHTML(money(p[key]))} · ${escapeHTML(formatTime(p.at))} · ${escapeHTML(p.snapshot_id)}${p.valuation_status==='last_known'?' · Last-known mark':''}</title></circle>`).join('')).join('');
+  $('#performance-chart').innerHTML=`<svg class="observed-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="Observed Blue and SPY portfolio values. Separate dots, not official daily closes."><line x1="${pad}" y1="${height-pad}" x2="${width-pad}" y2="${height-pad}" stroke="#bdc5c6"/><text x="${pad}" y="16">${escapeHTML(money(hi))}</text><text x="${pad}" y="${height-5}">${escapeHTML(formatTime(new Date(first).toISOString(),true))}</text>${dots}</svg><div class="observed-legend"><span>● Blue</span><span>● SPY comparator</span></div>`;
+  const rows=points.slice(-20).reverse().map(p=>`<tr><td>${escapeHTML(formatTime(p.at))}</td><td>${escapeHTML(money(p.value))}</td><td>${escapeHTML(money(p.benchmark_value))}</td><td>${Array.isArray(p.marks)?p.marks.map(m=>`${escapeHTML(m.symbol)} ${escapeHTML(formatTime(m.market_data_at))}`).join('<br>'):'Source timestamps unavailable'}</td></tr>`).join('');
+  $('#performance-chart').innerHTML+=`<details class="observation-table"><summary>Read latest ${Math.min(points.length,20)} observations</summary><div class="table-scroll"><table><caption>Recorded values, not official closes</caption><thead><tr><th>Accounting cutoff</th><th>Blue</th><th>SPY</th><th>Trade timestamps</th></tr></thead><tbody>${rows}</tbody></table></div></details>`;
+  $('#chart-note').textContent=`${points.length} observed points · ${formatTime(new Date(last).toISOString(),true)} latest. Not official closes; gaps are not interpolated.${history.truncated?' Recent 200 reconciliation receipts only.':''}${history.omitted_unverified?' Unverified observations omitted.':''}`;
 }
 
 function renderRisk(state, started) {
   const risk = state.risk || state.portfolio?.risk || {};
   const positions = state.portfolio?.holdings || [];
   const items = [
-    { label: 'Largest position', value: percent(risk.largest_position), note: (state.portfolio?.holdings_status === 'unknown' || !Array.isArray(state.portfolio?.holdings)) ? 'Accounting unavailable' : positions.length ? 'Share of portfolio value' : 'No invested exposure' },
+    { label: 'Largest position', value: percent(risk.largest_position), note: (state.portfolio?.holdings_status === 'unknown' || !Array.isArray(state.portfolio?.holdings)) ? 'Accounting unavailable' : positions.length ? (risk.observation_status==='last_known'?'Share at last-known marks':'Share of portfolio value') : 'No invested exposure' },
     { label: 'Max. drawdown', value: started ? percent(risk.max_drawdown) : '—', note: started ? 'Peak-to-trough decline' : 'Requires active history' },
     { label: 'Annualized volatility', value: started ? percent(risk.annualized_volatility) : '—', note: 'Requires sufficient daily returns' },
   ];
