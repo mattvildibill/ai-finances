@@ -146,7 +146,7 @@ function renderHoldings(portfolio, started) {
 
 function renderChart(state, started) {
   // /api/state provides the latest valuation, not a chronological NAV series.
-  $('#performance-chart').innerHTML = `<div class="chart-empty"><span aria-hidden="true">${started ? '—' : 'Ⅱ'}</span><strong>${started ? 'Performance history unavailable' : 'Not started'}</strong><p>${started ? 'No verified NAV series supplied.' : 'Awaiting inception.'}</p></div>`;
+  $('#performance-chart').innerHTML = `<div class="chart-empty"><span aria-hidden="true"></span><strong>${started ? 'Performance history unavailable' : 'Not started'}</strong><p>${started ? 'No verified NAV series supplied.' : 'Awaiting inception.'}</p></div>`;
   $('#chart-note').textContent = 'No portfolio or SPY series available.';
 }
 
@@ -184,7 +184,7 @@ function recordCard(event, journal = false) {
   const evidenceHTML = evidence.length ? `<details class="evidence"><summary>${evidence.length} evidence source${evidence.length === 1 ? '' : 's'} · inspect provenance</summary><ul>${evidence.map((source) => {
     const url = safeURL(source.url);
     const label = source.title || source.url || 'Recorded source';
-    return `<li>${url ? `<a href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer">${escapeHTML(label)} ↗</a>` : escapeHTML(label)}<time>Observed: ${escapeHTML(formatTime(source.observed_at || source.retrieved_at))}</time>${source.published_at ? `<time>Published: ${escapeHTML(formatTime(source.published_at))}</time>` : ''}${source.excerpt ? `<p>${escapeHTML(source.excerpt)}</p>` : ''}</li>`;
+    return `<li>${url ? `<a href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer">${escapeHTML(label)} <svg class="ui-icon" viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 10h12m-5-5 5 5-5 5"/></svg></a>` : escapeHTML(label)}<time>Observed: ${escapeHTML(formatTime(source.observed_at || source.retrieved_at))}</time>${source.published_at ? `<time>Published: ${escapeHTML(formatTime(source.published_at))}</time>` : ''}${source.excerpt ? `<p>${escapeHTML(source.excerpt)}</p>` : ''}</li>`;
   }).join('')}</ul></details>` : '';
   const kind = ['research', 'challenge', 'decision'].includes(event.kind) ? event.kind : '';
   return `<article class="record-card"><div class="record-topline"><span class="role-tag ${kind}">${escapeHTML(roleName(event))}${event.kind === 'decision' ? ' · Proposal' : ''}</span><time datetime="${escapeHTML(event.created_at || event.recorded_at)}">Recorded ${escapeHTML(formatTime(event.created_at || event.recorded_at))}</time></div><h2>${escapeHTML(payload.title || (payload.action === 'hold' ? 'A decision to hold.' : payload.summary?.slice(0, 85) || 'Recorded contribution'))}</h2><div class="record-summary">${escapeHTML(payload.summary || payload.thesis || payload.message || 'No summary supplied.')}</div><details class="record-detail"><summary>Read thesis, dissent &amp; sources</summary>${facts.some(([, value]) => value !== undefined && value !== null && value !== '') ? `<div class="record-facts">${facts.filter(([, value]) => value !== undefined && value !== null && value !== '').map(([label, value]) => `<dl><dt>${escapeHTML(label)}</dt><dd>${readableValue(value)}</dd></dl>`).join('')}</div>` : ''}${evidenceHTML}<p class="record-id">${payload.author ? `Authored by ${escapeHTML(payload.author)} · ` : ''}Immutable record ${escapeHTML(event.id || 'ID unavailable')}</p></details></article>`;
@@ -235,12 +235,16 @@ function renderHealth(state) {
     healthItem('Blue connection', healthValue(health.blue_connection ?? health.mcp), 'Authenticated Site tools; no separate AI API billing.'),
     healthItem('Unattended updates', healthValue(automation, 'Not verified'), health.schedule || health.automation_detail || 'A saved schedule alone does not prove a successful run.'),
     healthItem('Last successful review', review ? formatTime(review) : 'No completed review', 'Research, independent challenge, and final decision.'),
-    healthItem('Execution readiness', healthValue(health.execution ?? health.execution_status ?? health.trading, 'Locked while paused'), health.data_fresh === true ? 'The latest observation passed the freshness check. Experiment pause still blocks trades.' : 'Data has not passed current execution freshness checks. Trading stays blocked.', 'warning'),
+    healthItem('Execution readiness', healthValue(health.execution ?? health.execution_status ?? health.trading, 'See recorded protocol'), health.data_fresh === true ? 'Freshness check passed. Execution remains subject to the recorded protocol and release-specific gates.' : 'Current execution freshness is unverified. This display grants no execution permission.', 'warning'),
   ];
   if (health.last_error) rows.push(healthItem('Last update error', 'Needs attention', asText(health.last_error), 'warning'));
   else if (health.last_failure) rows.push(healthItem('Last failed update', formatTime(health.last_failure), 'See the immutable timeline for the recorded failure.', 'warning'));
   if (state.account_drift) rows.push(healthItem('External account activity', 'Reconciliation required', 'Broker holdings or cash differ from the original allocation. Official experiment accounting has not silently adopted those changes.', 'warning'));
-  if (Array.isArray(health.verification)) health.verification.forEach((item) => rows.push(healthItem(item.title || 'Recorded verification', item.status || 'See recorded result', item.summary || '', item.status === 'passed' ? 'ok' : '')));
+  if (Array.isArray(health.verification)) health.verification.forEach((item) => {
+    const outcome = item.outcome ?? item.status ?? 'Not recorded';
+    const detail = [`Check: ${item.check || 'Not recorded'}`, `Revision: ${item.revision || item.release_revision || item.commit_sha || 'Not recorded'}`, item.summary].filter(Boolean).join(' · ');
+    rows.push(healthItem(item.title || 'Recorded verification', asText(outcome), detail, outcome === 'passed' ? 'ok' : outcome === 'failed' ? 'warning' : ''));
+  });
   if (Array.isArray(health.blockers)) health.blockers.forEach((item, index) => rows.push(healthItem(`Readiness blocker ${index + 1}`, 'Unresolved', asText(item), 'warning')));
   $('#health-list').innerHTML = rows.join('');
 }
@@ -295,7 +299,7 @@ $('#refresh-button').addEventListener('click', async () => {
     const loaded = await loadState();
     if (loaded) showMessage(result.message || 'Market observations refreshed.');
   } catch (error) { showMessage(`${error.message} The previous state is retained; a failed update does not authorize a trade.`, true); }
-  finally { button.disabled = false; button.innerHTML = '<span aria-hidden="true">↻</span> Refresh'; }
+  finally { button.disabled = false; button.innerHTML = '<span aria-hidden="true"><svg class="ui-icon" viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 8a6 6 0 1 0 0 5M16 3v5h-5"/></svg></span> Refresh'; }
 });
 
 $('#replay-button').addEventListener('click', async () => {

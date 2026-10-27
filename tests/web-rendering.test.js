@@ -159,3 +159,26 @@ test('all navigation routes, refresh errors, loading retry and history controls 
   assert.equal(element('#refresh-button').disabled,false);
   assert.equal(element('#portfolio-value').textContent,'$100,000.00');
 });
+
+test('verification checks expose failed outcome and exact revision without implying execution permission', () => {
+  const view = ui();
+  view.renderState({ health: { data_fresh: true, verification: [{ title: 'Release check', check: 'broker_settlement', outcome: 'failed', status: 'passed', revision: 'isolated-revision', summary: 'Unresolved receipt' }] } });
+  const html = view.get('#health-list').innerHTML;
+  assert.match(html, /Check: broker_settlement/);
+  assert.match(html, /Revision: isolated-revision/);
+  assert.match(html, /health-value warning">failed/);
+  assert.doesNotMatch(html, /Experiment pause still blocks trades/);
+  assert.match(html, /recorded protocol and release-specific gates/);
+});
+
+test('offline review artifact retains literal JavaScript dollar tokens and compiles', async () => {
+  const { execFileSync } = await import('node:child_process');
+  execFileSync(process.execPath, ['scripts/ui-review.mjs'], { cwd: new URL('..', import.meta.url) });
+  const html = readFileSync(new URL('../outputs/blue-design-review.html', import.meta.url), 'utf8');
+  const script = html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+  assert.ok(script);
+  assert.ok(script.includes("const $$ = (selector)"));
+  assert.ok(script.includes("$$('[data-view]')"));
+  assert.doesNotThrow(() => new vm.Script(script));
+  assert.doesNotMatch(html, /src="\/app.js"|href="\/styles.css"/);
+});
