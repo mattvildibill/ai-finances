@@ -39,3 +39,7 @@ The staged source continuation is documented in [LAUNCH-CONTINUATION-2026-10-27.
 ## Bounded candidate completion
 
 [BOUNDED-RELEASE-CANDIDATE-2026-10-27.md](BOUNDED-RELEASE-CANDIDATE-2026-10-27.md) supersedes earlier implementation TODOs: shared exact ordinary-action replay and atomic prospective activation are implemented and tested, while production execution/activation remain hard-disabled. See [CORPORATE-ACTION-OPERATIONS.md](CORPORATE-ACTION-OPERATIONS.md) for the typed staged tool contract. Actual runtime, issuer, broker-settlement and release evidence remain mandatory; this source work did not produce any of them in the official journal.
+
+## Ongoing agent follow-through — 27 October 2026
+
+Use [AGENT-OPERATING-FLOW.md](AGENT-OPERATING-FLOW.md) for the requested bounded after-session research, skeptical evidence review, portfolio-risk assessment and independent technical review when code changes. It adds a Blue Capital-only 180-day growth objective and broad-market research without expanding tradable assets or relaxing limits. Its dated automation section distinguishes current configuration, denied prompt-edit access and parent-reported temporary launch reviews; earlier handoff statements above are historical context, not proof of current enablement or repeated operation. Read actual runtime state and recorded pilot/rollout authorizations before any action. This documentation update changes neither production nor automation.
