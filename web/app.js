@@ -97,7 +97,7 @@ function renderState(state) {
   $('#cash-track').style.width = `${cashRatio === null ? 0 : Math.min(100, Math.max(0, cashRatio * 100))}%`;
   $('#pause-banner').hidden = !paused || !statusKnown;
   $('#pause-detail').textContent = state.account_drift || state.accounting?.status === 'blocked' ? 'Account checks need attention. No new trades.' : state.operation?.authorization === 'expired' ? 'Today’s trading permission has ended. Holdings stay invested; a new review is needed before buying again.' : 'No new trades until the required checks pass.';
-  $('#operations-status').textContent = !statusKnown ? 'Unverified' : state.operation?.authorization==='expired'?'Session authorization expired':state.operation?.authorization==='recorded'?'Authorization recorded · runtime checks required':paused ? 'Paused' : 'Active · paper only';
+  $('#operations-status').textContent = state.operation?.mode==='managed-paper' ? (state.operation.problem ? 'Needs attention' : state.operation.enabled ? 'Managed paper portfolio · trade checks required' : 'Managed trading not enabled') : !statusKnown ? 'Unverified' : state.operation?.authorization==='expired'?'Session authorization expired':state.operation?.authorization==='recorded'?'Authorization recorded · runtime checks required':paused ? 'Paused' : 'Active · paper only';
   renderMarket(state);
   renderHoldings(portfolio, started);
   renderChart(state, started, unstarted);
@@ -400,6 +400,7 @@ function renderHealth(state) {
 
 function renderMandate(mandate) {
   const universe = approvedUniverse(mandate);
+  if(mandate.managed_mode){$('#mandate-version').textContent='Managed paper portfolio';$('#mandate-grid').innerHTML=[['Goal','180 days','Grow the original simulated $100,000 responsibly; returns are not guaranteed.'],['Spending','Available cash only','No borrowing. Reconciled sale proceeds can be reinvested.'],['Investment size','Manager judgment','Each material decision explains its size, concentration and downside. No fixed launch allocation cap.'],['Investments','Verified stocks and funds','Ordinary supported US stocks and nonleveraged, noninverse funds; no shorts or options.'],['Trading hours','Regular session only','Fresh prices and account checks are required before each order.'],['Original portfolio','Preserved','No reset of holdings, cash, history or the SPY comparison.']].map(([label,value,detail])=>`<div class="mandate-item"><h3>${label}</h3><strong>${value}</strong><p>${detail}</p></div>`).join('');return;}
   const version = value => Number.isSafeInteger(value) && value > 0 ? String(value) : 'unavailable';
   const universeVersion = mandate.universe_version === undefined ? mandate.configuration_version : mandate.universe_version;
   $('#mandate-version').textContent = `Mandate ${version(mandate.mandate_version)} · Universe ${version(universeVersion)}`;
