@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Push the exact source via an ephemeral credential supplied on stdin. Never log it."""
 import sys,json,os,subprocess
+if sys.stdin.isatty():
+ import termios
+ attrs=termios.tcgetattr(sys.stdin.fileno()); attrs[3] &= ~termios.ECHO; termios.tcsetattr(sys.stdin.fileno(),termios.TCSANOW,attrs)
+print('Ready for hidden credential JSON',flush=True)
 c=json.loads(sys.stdin.readline()); env=os.environ.copy()
 if c.get('token'):
  env.update(GIT_CONFIG_COUNT='1',GIT_CONFIG_KEY_0='http.extraHeader',GIT_CONFIG_VALUE_0='Authorization: Bearer '+c['token'])
