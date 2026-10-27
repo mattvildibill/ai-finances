@@ -24,7 +24,13 @@ Ordinary distribution entitlements equal eligible whole shares multiplied by the
 
 ## Cent projections and display
 
-Legacy risk helpers receive conservative cent projections: operational cash, basis and operational NAV are floored; the cash-reserve NAV is ceiled; modeled receivable/cash income projections are ceiled. These projections never replace the exact ledger. The bounded validation starts flat and permits only one intent, so upward quote projection conservatively sizes its single purchase against the original cash NAV. This is not a claim that upward marks give a conservative NAV denominator for a later invested portfolio: general trading remains disabled and must use separately conservative exact denominators before broader activation. Analytical valuations retain exact marks.
+Risk checks now use exact nano-dollar marks, cash, modeled income and integer ratio comparisons for both nano and legacy-cent portfolios. Cent projections remain display conveniences and never determine order eligibility. The normal and one-share validation routes share the same reservation calculation; there is no upward-rounded NAV denominator.
+
+With exact operational NAV V, cash C, marked holdings H, target position P, modeled income I, and reservation R = whole quantity × max(observed mark, explicit limit), enforce R/V <=5%. For buys, enforce (P+R)/V <= the instrument cap, (H+R)/V <=90%, and C-R >=10% of V+I with nonnegative remaining cash. Implement these as BigInt cross-products, with no floating-point division or tolerance. Modeled income never funds an order. The validation route additionally requires one SPY share, R <=$1,000 and R/V <=1%.
+
+Sells use the same larger-of-mark-and-limit reservation for the order cap, retain the inventory check, and need not cure every pre-existing exposure or cash breach. A low sell limit cannot disguise a large liquidation. Every held security and the ordered asset requires a fresh positive mark, including holdings unrelated to the order.
+
+These formulas implement conservative pre-trade reservation under the existing mandate. At an above-mark buy fill, reserving the larger limit also overstates acquired marked exposure, guarding against the associated NAV reduction. At a better-priced fill, actual retained cash improves. This is not a guarantee against subsequent market movement, unmodeled fees or broker discrepancies: actual fills and drift still require reconciliation. No broader trading permission follows from this arithmetic correction.
 
 Public state exposes exact cash, value, economic-value and basis strings. Dollar numbers and percentages are display conveniences; normal currency formatting may show two decimal places. A displayed zero or rounded amount is not evidence that an exact residual disappeared. Inspect the exact fields and source receipts for reconciliation.
 

@@ -38,6 +38,7 @@ export function brokerFixture(overrides = {}) {
     if (overrides.failStatus) return new Response('{}', { status: overrides.failStatus });
     if (u.pathname === '/v2/account') body = account;
     else if (u.pathname === '/v2/account/activities/FILL') body = [];
+    else if (u.pathname === '/v2/assets/SPY') body = {id:'fixture-spy-asset',symbol:'SPY',status:'active',tradable:true,class:'us_equity',exchange:'ARCA',name:'Synthetic SPY fixture',...overrides.asset};
     else if (u.pathname === '/v2/clock') body = clock;
     else if (u.pathname === '/v2/positions') body = overrides.positions || [];
     else if (u.pathname === '/v2/orders') body = overrides.orders || [];

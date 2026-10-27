@@ -42,8 +42,8 @@ test('replay filters by recording time and cannot leak a later correction about 
 });
 test('refresh persists an actual service result; retry does not call broker or duplicate snapshot', async t => {
   const { db } = temporaryDatabase(t); const f = brokerFixture();
-  const first = await refresh(db, testEnv, 'snapshot-test-001', actor, f.fetcher); assert.equal(f.calls.length, 9);
-  const second = await refresh(db, testEnv, 'snapshot-test-001', actor, f.fetcher); assert.equal(f.calls.length, 9); assert.deepEqual(first, second);
+  const first = await refresh(db, testEnv, 'snapshot-test-001', actor, f.fetcher); assert.equal(f.calls.length, 10);
+  const second = await refresh(db, testEnv, 'snapshot-test-001', actor, f.fetcher); assert.equal(f.calls.length, 10); assert.deepEqual(first, second);
   const readback = await state(db); assert.equal(readback.latest_snapshot.id, first.id); assert.equal(readback.broker_account.cash, 100000); assert.equal(readback.portfolio.value, 100000); assert.equal(readback.experiment.status, 'paused'); assert.equal(readback.snapshots.length, 1); assert.equal(readback.last_reconciliation.payload.ledger_status, 'not_started'); assert.equal(readback.last_reconciliation.payload.activity_count, 0); assert.ok(f.calls.every(c => c.method === 'GET'));
 });
 test('source failure records health event, preserves last successful data, releases lock', async t => {
@@ -88,7 +88,7 @@ test('paused execution sends zero requests even if TRADING_ENABLED is set', asyn
 });
 test('Alpaca transport hard-codes paper origin and explicit free IEX data feed', async () => {
   const f = brokerFixture(); const p = await observe({ ...testEnv, ALPACA_BASE_URL: 'https://api.alpaca.markets' }, f.fetcher);
-  assert.equal(p.feed, 'iex'); assert.equal(p.execution_ready, true); assert.equal(f.calls.length, 5);
+  assert.equal(p.feed, 'iex'); assert.equal(p.execution_ready, true); assert.equal(f.calls.length, 6);
   for (const call of f.calls) { assert.equal(call.redirect, 'manual'); assert.equal(call.method, 'GET'); assert.ok([PAPER, DATA].includes(new URL(call.url).origin)); }
   const data = f.calls.find(c => c.url.startsWith(DATA)); assert.equal(new URL(data.url).searchParams.get('feed'), 'iex');
   await assert.rejects(alpaca(testEnv, 'https://api.alpaca.markets/v2/orders', { fetcher: f.fetcher }), /Invalid Alpaca path/);
