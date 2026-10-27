@@ -8,7 +8,7 @@ import {state,refresh,submit} from '../lib/service.js';
 import {AppError,isoNow,listEvents} from '../lib/store.js';
 import {executeDecision,executeValidationDecision,executeRolloutDecision} from '../lib/execution.js';
 import {reconcile} from '../lib/reconciliation.js';
-import {validateWriteRequest} from '../lib/request-security.js';
+import {validateWriteRequest,readJSONBody as body} from '../lib/request-security.js';
 import {assets} from './assets.generated.js';
 const schemaRecord={type:'object',additionalProperties:false,required:['idempotency_key','kind','payload'],properties:{idempotency_key:{type:'string',minLength:8,maxLength:160},kind:{enum:['research','challenge','decision','revision','verification']},payload:{type:'object',description:'Authored summary, never private chain of thought. Requires title, summary, author. Research/challenge/decision additionally role, evidence [{title,url,observed_at,excerpt}], snapshot_ids. Research/decision: thesis,horizon,uncertainties,change_mind. Challenge: research_id,counterargument. Decision: research_id,challenge_id,action (hold/buy/sell),size USD,symbol for buy/sell,limit_price_cents and valid_until for buy/sell,challenge_response. Revision: supersedes. Distinct authors for each role.'}}};
 const toolDefs=[
@@ -26,7 +26,6 @@ const toolDefs=[
 {name:'export_history',description:'Export immutable records after a sequence number, up to 500 per page. Digests are SHA-256 of canonical {kind,payload}.',inputSchema:{type:'object',properties:{after_seq:{type:'integer',minimum:0}},additionalProperties:false}}
 ];
 function json(value,status=200){return new Response(JSON.stringify(value),{status,headers:{'Content-Type':'application/json','Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});}
-async function body(request){if(Number(request.headers.get('content-length'))>70000)throw new AppError('Request too large.',413);const str=await request.text();if(str.length>70000)throw new AppError('Request too large.',413);try{return JSON.parse(str);}catch{throw new AppError('Invalid JSON.');}}
 function authorize(request,env){
  // Dispatch verifies the private Site audience and strips/spoof-protects identity headers.
  // Service access is intentionally limited by an additional server-only bearer.
