@@ -2,11 +2,12 @@
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
-const money = (value, digits = 2) => Number.isFinite(Number(value)) && value !== null && value !== undefined ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: digits, maximumFractionDigits: digits }).format(Number(value)) : '—';
-const number = (value, digits = 2) => Number.isFinite(Number(value)) && value !== null && value !== undefined ? Number(value).toLocaleString('en-US', { maximumFractionDigits: digits }) : '—';
+const numeric = value => (typeof value === 'number' || typeof value === 'string' && value.trim() !== '') && Number.isFinite(Number(value));
+const money = (value, digits = 2) => numeric(value) ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: digits, maximumFractionDigits: digits }).format(Number(value)) : '—';
+const number = (value, digits = 2) => numeric(value) ? Number(value).toLocaleString('en-US', { maximumFractionDigits: digits }) : '—';
 const presentOrLegacy = (value, legacy) => value === undefined ? legacy : value;
-const knownRatio = (part, whole) => part !== null && part !== undefined && whole !== null && whole !== undefined && Number.isFinite(Number(part)) && Number.isFinite(Number(whole)) && Number(whole) > 0 ? Number(part) / Number(whole) : null;
-const percent = (value) => value === null || value === undefined || !Number.isFinite(Number(value)) ? '—' : `${number(Number(value) * 100, 2)}%`;
+const knownRatio = (part, whole) => numeric(part) && numeric(whole) && Number(whole) > 0 ? Number(part) / Number(whole) : null;
+const percent = (value) => !numeric(value) ? '—' : `${number(Number(value) * 100, 2)}%`;
 const escapeHTML = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 const safeURL = (value) => { try { const url = new URL(value); return ['https:', 'http:'].includes(url.protocol) ? url.href : null; } catch { return null; } };
 const asText = (value) => Array.isArray(value) ? value.map(asText).join('\n') : value && typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value ?? '');
@@ -17,6 +18,7 @@ const formatTime = (value, short = false) => {
 const byTime = (a, b) => new Date(b.created_at || b.recorded_at || 0) - new Date(a.created_at || a.recorded_at || 0);
 let currentState = null;
 let currentView = 'overview';
+let replayRequest = 0;
 
 function showMessage(message, isError = false) {
   const element = $('#global-message');
@@ -68,7 +70,9 @@ function renderState(state) {
   currentState = state;
   const experiment = state.experiment || {};
   const portfolio = state.portfolio || {};
-  const started = Boolean(experiment.started_at);
+  const started = Number.isFinite(Date.parse(experiment.started_at));
+  const unstarted = experiment.started_at === null && (experiment.phase === 'unstarted' || state.accounting?.status === 'not_started');
+  const statusKnown = ['paused', 'active', 'running'].includes(experiment.status);
   const paused = experiment.status !== 'active' && experiment.status !== 'running';
   const value = presentOrLegacy(portfolio.value, portfolio.equity);
   const cash = portfolio.cash;
@@ -76,26 +80,26 @@ function renderState(state) {
   $('#state-time').textContent = `State · ${formatTime(state.as_of)}${portfolio.valuation_status === 'unavailable' ? ' · Valuation unavailable' : ''}`;
   $('#invested-value').textContent = knownRatio(cash, value) === null ? '—' : money(Number(value) - Number(cash));
   $('#cash-value').textContent = money(cash);
-  $('#capital-state').textContent = started ? (paused ? 'PAUSED' : 'PAPER PORTFOLIO') : 'PRE-LAUNCH';
-  $('#capital-title').firstChild.textContent = started ? 'TOTAL VALUE ' : 'OPENING CAPITAL ';
-  $('#capital-context').textContent = started ? `Official ledger · Since ${formatTime(experiment.started_at, true)} · Modeled comparison NAV ${money(portfolio.economic_value)}` : 'Allocated starting cash · Official experiment not started';
+  $('#capital-state').textContent = !statusKnown ? 'UNVERIFIED' : started ? (paused ? 'PAUSED' : 'PAPER PORTFOLIO') : unstarted ? 'PRE-LAUNCH' : 'UNVERIFIED';
+  $('#capital-title').firstChild.textContent = unstarted ? 'OPENING CAPITAL ' : 'TOTAL VALUE ';
+  $('#capital-context').textContent = started ? `Official ledger · Since ${formatTime(experiment.started_at, true)} · Modeled comparison NAV ${money(portfolio.economic_value)}` : unstarted ? 'Allocated starting cash · Official experiment not started' : 'Experiment state unavailable';
   const gain = presentOrLegacy(portfolio.gain, portfolio.total_gain);
-  $('#return-value').textContent = started ? money(gain) : 'Not started';
-  $('#return-value').classList.toggle('negative', started && gain !== null && Number(gain) < 0);
-  $('#return-value').classList.toggle('positive', started && gain !== null && Number(gain) > 0);
+  $('#return-value').textContent = started ? money(gain) : unstarted ? 'Not started' : '—';
+  $('#return-value').classList.toggle('negative', started && numeric(gain) && Number(gain) < 0);
+  $('#return-value').classList.toggle('positive', started && numeric(gain) && Number(gain) > 0);
   $('#return-value').style.fontSize = started ? '' : '27px';
-  $('#return-detail').textContent = started ? `${percent(portfolio.total_return)} since inception · ${portfolio.performance_basis || 'Performance basis unavailable'}` : 'Awaiting inception';
-  $('#relative-return').textContent = started && state.benchmark?.excess_return !== undefined ? percent(state.benchmark.excess_return) : state.benchmark?.status === 'not_started' || !started ? 'Not started' : 'Not available';
+  $('#return-detail').textContent = started ? `${percent(portfolio.total_return)} since inception · ${portfolio.performance_basis || 'Performance basis unavailable'}` : unstarted ? 'Awaiting inception' : 'Inception unverified';
+  $('#relative-return').textContent = started && state.benchmark?.excess_return !== undefined ? percent(state.benchmark.excess_return) : unstarted ? 'Not started' : 'Not available';
   const cashRatio = knownRatio(cash, value);
   $('#cash-percent').textContent = cashRatio === null ? 'Waiting for accounting state' : `${percent(cashRatio)} of portfolio`;
   $('#cash-track').hidden = cashRatio === null;
   $('#cash-track').style.width = `${cashRatio === null ? 0 : Math.min(100, Math.max(0, cashRatio * 100))}%`;
-  $('#pause-banner').hidden = !paused;
+  $('#pause-banner').hidden = !paused || !statusKnown;
   $('#pause-detail').textContent = experiment.pause_reason || (started ? 'New trading is paused. Existing records remain available for inspection.' : 'Awaiting verified inception.');
-  $('#operations-status').textContent = paused ? 'Paused' : 'Active · paper only';
+  $('#operations-status').textContent = !statusKnown ? 'Unverified' : paused ? 'Paused' : 'Active · paper only';
   renderMarket(state);
   renderHoldings(portfolio, started);
-  renderChart(state, started);
+  renderChart(state, started, unstarted);
   renderRisk(state, started);
   renderRecords(state);
   renderHealth(state);
@@ -132,7 +136,7 @@ function renderMarket(state) {
 
 function renderHoldings(portfolio, started) {
   const holdings = Array.isArray(portfolio.holdings) ? portfolio.holdings : [];
-  $('#holdings-count').textContent = portfolio.holdings_status === 'unknown' ? 'Holdings unavailable' : `${holdings.length} position${holdings.length === 1 ? '' : 's'}`;
+  $('#holdings-count').textContent = (portfolio.holdings_status === 'unknown' || !Array.isArray(portfolio.holdings)) ? 'Holdings unavailable' : `${holdings.length} position${holdings.length === 1 ? '' : 's'}`;
   $('#holdings-body').innerHTML = holdings.map((holding) => {
     const marketValue = presentOrLegacy(holding.market_value, holding.value);
     const gain = presentOrLegacy(holding.unrealized_pl, holding.unrealized_gain);
@@ -140,13 +144,13 @@ function renderHoldings(portfolio, started) {
     return `<tr><td><strong>${escapeHTML(holding.symbol)}</strong></td><td>${number(presentOrLegacy(holding.qty, holding.quantity), 8)}</td><td>${money(holding.cost_basis)}</td><td>${money(marketValue)}</td><td class="${Number(gain) < 0 ? 'negative' : Number(gain) > 0 ? 'positive' : ''}">${money(gain)}</td><td>${percent(weight)}</td></tr>`;
   }).join('');
   $('#holdings-empty').hidden = holdings.length > 0;
-  $('#holdings-empty strong').textContent = portfolio.holdings_status === 'unknown' ? 'Holdings unavailable' : 'No holdings';
-  $('#holdings-empty p').textContent = portfolio.holdings_status === 'unknown' ? 'Accounting is blocked; holdings are unavailable pending reconciliation.' : started ? 'All cash.' : 'Awaiting inception.';
+  $('#holdings-empty strong').textContent = (portfolio.holdings_status === 'unknown' || !Array.isArray(portfolio.holdings)) ? 'Holdings unavailable' : 'No holdings';
+  $('#holdings-empty p').textContent = (portfolio.holdings_status === 'unknown' || !Array.isArray(portfolio.holdings)) ? 'Holdings could not be verified.' : started ? 'All cash.' : 'Awaiting inception.';
 }
 
-function renderChart(state, started) {
+function renderChart(state, started, unstarted = state.experiment?.started_at === null && state.experiment?.phase === 'unstarted') {
   // /api/state provides the latest valuation, not a chronological NAV series.
-  $('#performance-chart').innerHTML = `<div class="chart-empty"><span aria-hidden="true"></span><strong>${started ? 'Performance history unavailable' : 'Not started'}</strong><p>${started ? 'No verified NAV series supplied.' : 'Awaiting inception.'}</p></div>`;
+  $('#performance-chart').innerHTML = `<div class="chart-empty"><span aria-hidden="true"></span><strong>${unstarted ? 'Not started' : 'Performance history unavailable'}</strong><p>${unstarted ? 'Awaiting inception.' : 'No verified NAV series supplied.'}</p></div>`;
   $('#chart-note').textContent = 'No portfolio or SPY series available.';
 }
 
@@ -154,7 +158,7 @@ function renderRisk(state, started) {
   const risk = state.risk || state.portfolio?.risk || {};
   const positions = state.portfolio?.holdings || [];
   const items = [
-    { label: 'Largest position', value: percent(risk.largest_position), note: state.portfolio?.holdings_status === 'unknown' ? 'Accounting unavailable' : positions.length ? 'Share of portfolio value' : 'No invested exposure' },
+    { label: 'Largest position', value: percent(risk.largest_position), note: (state.portfolio?.holdings_status === 'unknown' || !Array.isArray(state.portfolio?.holdings)) ? 'Accounting unavailable' : positions.length ? 'Share of portfolio value' : 'No invested exposure' },
     { label: 'Max. drawdown', value: started ? percent(risk.max_drawdown) : '—', note: started ? 'Peak-to-trough decline' : 'Requires active history' },
     { label: 'Annualized volatility', value: started ? percent(risk.annualized_volatility) : '—', note: 'Requires sufficient daily returns' },
   ];
@@ -220,17 +224,34 @@ function healthValue(value, fallback = 'Unverified') {
   return value ? String(value) : fallback;
 }
 
+function reconciliationDisplay(state) {
+  const receipt = state.last_reconciliation;
+  if (!receipt) return { value: 'Not run', detail: '', kind: '' };
+  const payload = typeof receipt.payload === 'string' ? parseJSON(receipt.payload) : receipt.payload || {};
+  const problems = Array.isArray(payload.problems) ? payload.problems : null;
+  const onlyNotStarted = problems?.length === 1 && problems[0]?.code === 'not_started';
+  const awaiting = payload.status === 'blocked' && payload.ledger_status === 'not_started' &&
+    payload.trading_permitted === false && onlyNotStarted && state.experiment?.started_at === null &&
+    state.accounting?.status === 'not_started' && Array.isArray(state.accounting.problems) &&
+    state.accounting.problems.length === 1 && state.accounting.problems[0]?.code === 'not_started' &&
+    state.account_drift === false && state.health?.source_status === 'connected' && !state.health?.last_error;
+  const value = awaiting ? 'Awaiting start' : healthValue(payload.status);
+  const reasons = problems?.map(problem => typeof problem === 'object' && problem !== null ? problem.message || problem.code || 'Unspecified problem' : asText(problem)).join(' · ');
+  return { value, detail: [`Last receipt ${formatTime(receipt.created_at)}`, awaiting ? 'Official inception pending; execution remains gated.' : reasons].filter(Boolean).join(' · '), kind: awaiting ? '' : payload.status === 'blocked' ? 'warning' : '' };
+}
+
 function renderHealth(state) {
   const health = state.health || {};
   const snapshot = latestSnapshot(state);
   const account = snapshot?.payload?.account;
   const review = health.last_successful_review || health.last_review_at;
   const automation = health.automation || health.automation_status || health.scheduler;
+  const reconciliation = reconciliationDisplay(state);
   const rows = [
-    healthItem('Paper reconciliation', state.last_reconciliation ? healthValue(state.last_reconciliation.payload?.status) : 'Not run', state.last_reconciliation ? `Last receipt ${formatTime(state.last_reconciliation.created_at)}. ${state.last_reconciliation.payload?.scope || 'Inspect the audit export for exact broker receipts.'}` : 'GET-only reconciliation never submits an order.'),
+    healthItem('Paper reconciliation', reconciliation.value, reconciliation.detail, reconciliation.kind),
     healthItem('Official experiment', state.experiment?.status || 'Unverified', state.experiment?.started_at ? `Started ${formatTime(state.experiment.started_at)}` : 'No inception timestamp; no official performance history.', 'warning'),
     healthItem('Alpaca paper connection', healthValue(health.alpaca ?? health.alpaca_status ?? health.source_status ?? (account?.status === 'ACTIVE' ? 'Authenticated' : null)), 'Server-side paper endpoint only.', health.source_status === 'connected' ? 'ok' : ''),
-    healthItem('Market data', snapshot ? 'Snapshot available' : 'No verified snapshot', snapshot ? `Last retrieval ${formatTime(snapshot.payload.retrieved_at || snapshot.created_at)}` : 'Alpaca IEX, with source timestamps.'),
+    healthItem('Market data', health.source_status === 'failed' ? 'Update failed' : snapshot ? health.data_fresh === true ? 'Fresh at state cutoff' : 'Not execution-fresh' : 'No verified snapshot', snapshot ? `Last retrieval ${formatTime(snapshot.payload.retrieved_at || snapshot.created_at)}` : 'Alpaca IEX, with source timestamps.'),
     healthItem('Persistent records', healthValue(health.persistence ?? health.database), health.persistence_detail || 'Append-only decisions and source evidence.'),
     healthItem('Blue connection', healthValue(health.blue_connection ?? health.mcp), 'Authenticated Site tools; no separate AI API billing.'),
     healthItem('Unattended updates', healthValue(automation, 'Not verified'), health.schedule || health.automation_detail || 'A saved schedule alone does not prove a successful run.'),
@@ -245,7 +266,7 @@ function renderHealth(state) {
     const detail = [`Check: ${item.check || 'Not recorded'}`, `Revision: ${item.revision || item.release_revision || item.commit_sha || 'Not recorded'}`, item.summary].filter(Boolean).join(' · ');
     rows.push(healthItem(item.title || 'Recorded verification', asText(outcome), detail, outcome === 'passed' ? 'ok' : outcome === 'failed' ? 'warning' : ''));
   });
-  if (Array.isArray(health.blockers)) health.blockers.forEach((item, index) => rows.push(healthItem(`Readiness blocker ${index + 1}`, 'Unresolved', asText(item), 'warning')));
+  if (Array.isArray(health.blockers)) [...new Set(health.blockers)].forEach((item, index) => rows.push(healthItem(`Readiness blocker ${index + 1}`, 'Unresolved', asText(item), 'warning')));
   $('#health-list').innerHTML = rows.join('');
 }
 
@@ -268,6 +289,7 @@ function renderMandate(mandate) {
 }
 
 async function loadState() {
+  if (!currentState) { $('#loading').hidden = false; $('#loading').textContent = 'Opening the experiment…'; }
   try {
     const state = await request('/api/state');
     renderState(state);
@@ -308,17 +330,21 @@ $('#replay-button').addEventListener('click', async () => {
   const date = new Date(value);
   if (date > new Date()) { $('#replay-status').textContent = 'Choose a time in the past. Future information is not available.'; return; }
   const button = $('#replay-button');
+  const requestId = ++replayRequest;
   button.disabled = true;
   $('#replay-status').textContent = 'Loading the historical record…';
   try {
     const replay = await request(`/api/state?as_of=${encodeURIComponent(date.toISOString())}`);
+    if (requestId !== replayRequest) return;
     const events = getEvents(replay).filter((event) => new Date(event.created_at || event.recorded_at) <= date);
     $('#replay-status').textContent = `${events.length} record${events.length === 1 ? '' : 's'} available as of ${formatTime(date.toISOString())}. ${replay.history_truncated ? 'Recent window only; download the full audit log in Operations.' : 'Receipt-time view.'}`;
     $('#replay-list').innerHTML = events.length ? events.map((event) => recordCard(event)).join('') : emptyState('Before the record began.', 'No information had been recorded by the chosen moment. Information received later has been excluded.', '↶');
-  } catch (error) { $('#replay-status').textContent = error.message; $('#replay-list').innerHTML = ''; }
-  finally { button.disabled = false; }
+  } catch (error) { if (requestId === replayRequest) { $('#replay-status').textContent = error.message; $('#replay-list').innerHTML = ''; } }
+  finally { if (requestId === replayRequest) button.disabled = false; }
 });
 $('#replay-reset').addEventListener('click', () => {
+  replayRequest++;
+  $('#replay-button').disabled = false;
   $('#replay-date').value = '';
   $('#replay-status').textContent = currentState?.history_truncated ? 'Recent records · Download the full audit log in Operations.' : 'Present record';
   const events = currentState ? getEvents(currentState) : [];

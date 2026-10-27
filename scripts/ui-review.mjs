@@ -4,7 +4,9 @@ const html = await readFile('web/index.html', 'utf8');
 const css = await readFile('web/styles.css', 'utf8');
 const app = await readFile('web/app.js', 'utf8');
 const fixture = {
-  as_of: '2026-10-27T14:00:00Z', experiment: { status: 'paused' },
+  as_of: '2026-10-27T14:00:00Z', experiment: { status: 'paused', phase: 'unstarted', started_at: null },
+  accounting: { status: 'not_started', problems: [{ code: 'not_started' }] }, account_drift: false, health: { source_status: 'connected', data_fresh: false },
+  last_reconciliation: { created_at: '2026-10-27T13:00:00Z', payload: { status: 'blocked', ledger_status: 'not_started', trading_permitted: false, problems: [{ code: 'not_started', message: 'Official experiment has not started.' }] } },
   portfolio: { value: 100000, cash: 100000, holdings: [], gain: null, total_return: null },
   events: [{ id: 'isolated-review-only', kind: 'decision', created_at: '2026-10-27T13:00:00Z', payload: { title: 'Synthetic review: remain in cash', summary: 'Fixture content for layout review only.', action: 'hold', size: 0, thesis: 'A deliberately isolated thesis for inspecting disclosure layout.', counterargument: 'A recorded disagreement remains visible here.', candidates: [{ symbol: 'EXAMPLE', proposed_weight: 0.04, stance: 'Research only — not a holding or approved target' }], evidence: [{ title: 'Example source', url: 'https://example.com', observed_at: '2026-10-27T12:00:00Z', excerpt: 'Synthetic evidence, not a market observation.' }] } }],
   latest_snapshot: { id: 'isolated-snapshot', kind: 'snapshot', created_at: '2026-10-27T13:00:00Z', payload: { quotes: { AAPL: { price: 100, market_data_at: '2026-10-27T13:00:00Z' } }, clock: { is_open: true, timestamp: '2026-10-27T13:00:00Z' } } },
