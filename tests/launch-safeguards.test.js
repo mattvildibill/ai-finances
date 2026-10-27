@@ -1,3 +1,4 @@
+import { seedCoverage,releaseChecks } from './action-fixtures.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -20,8 +21,10 @@ async function seed(db,{open=true,control=true,reconciled=true}={}){
  await append(db,{id:'challenge-fixture-001',kind:'challenge',actor,payload:{...common,author:'challenger',role:'challenger',research_id:'research-fixture-001'}});
  await append(db,{id:'decision-fixture-001',kind:'decision',actor,payload:{...common,author:'manager',role:'portfolio_manager',research_id:'research-fixture-001',challenge_id:'challenge-fixture-001',challenge_response:'Synthetic test response',action:'buy',symbol:'AAPL',size:100,limit_price_cents:10000,valid_until:new Date(Date.now()+60000).toISOString()}});
  await append(db,{id:'release-evidence-001',kind:'verification',actor,payload:{outcome:'passed',summary:'Synthetic evidence only'}});
- for(const kind of ['launch_approval','release_verification'])await append(db,{id:kind+'-fixture',kind,actor,payload:{status:'approved',revision,mandate_version:1,evidence_ids:['release-evidence-001']}});
+ const checks=await releaseChecks(db,revision);
+ for(const kind of ['launch_approval','release_verification'])await append(db,{id:kind+'-fixture',kind,actor,payload:{status:'approved',authorization_reference:'Synthetic authorization fixture only',revision,mandate_version:1,checks,evidence_ids:['release-evidence-001']}});
  if(control)await append(db,{id:'control-fixture-001',kind:'experiment_control',actor,payload:{status:'active',started_at:start,release_revision:revision,approval_id:'launch_approval-fixture',verification_id:'release_verification-fixture'}});
+ await seedCoverage(db);
  if(reconciled)await append(db,{id:'reconciliation-fixture-001',kind:'reconciliation',actor,payload:{status:'reconciled',ledger_status:'ready',problems:[]}});
  return start;
 }
@@ -96,13 +99,14 @@ test('expired lease cannot be resurrected or used for a durable receipt',async t
 test('activation preflight never mutates or approves a release with unmet evidence',async t=>{
  const {db}=temporaryDatabase(t);await seed(db,{open:false,control:false});const before=await listEvents(db,now());
  const result=await activationPreflight(db,'snapshot-fixture-001');assert.equal(result.ready,false);assert.equal(result.trading_permitted,false);
- assert.ok(result.problems.some(p=>p.includes('revision')));assert.ok(result.problems.some(p=>p.includes('corporate-action')));
+ assert.ok(result.problems.some(p=>p.includes('revision')));assert.equal(result.gate,'hard_disabled');
  assert.equal((await listEvents(db,now())).length,before.length);
 });
 test('public state derives ledger holdings and marks; stale prices suppress values without losing quantities',async t=>{
  const {db}=temporaryDatabase(t);const start=await seed(db);
  await append(db,{id:'ledger-fill-fixture',kind:'ledger_fill',actor,payload:{fill:{id:'fill-view-001',symbol:'AAPL',side:'buy',quantity:2,price_cents:10000,occurred_at:start,observed_at:now()}}});
- const current=await state(db);assert.equal(current.experiment.started_at,start);assert.equal(current.experiment.status,'paused');assert.equal(current.portfolio.cash,99800);assert.equal(current.portfolio.holdings[0].quantity,2);assert.equal(current.portfolio.value,100000);assert.equal(current.account_drift,true);assert.equal(current.benchmark.status,'price_only');
+ await append(db,{id:'post-fill-reconciliation',kind:'reconciliation',actor,payload:{status:'reconciled',ledger_status:'ready',problems:[]}});
+ const current=await state(db);assert.equal(current.experiment.started_at,start);assert.equal(current.experiment.status,'paused');assert.equal(current.portfolio.cash,99800);assert.equal(current.portfolio.holdings[0].quantity,2);assert.equal(current.portfolio.value,100000);assert.equal(current.account_drift,true);assert.equal(current.benchmark.status,'incomplete');
  const stale=await state(db,new Date(Date.now()+121000).toISOString());assert.equal(stale.portfolio.value,null);assert.equal(stale.portfolio.total_return,null);assert.equal(stale.portfolio.cash,99800);assert.equal(stale.portfolio.holdings[0].quantity,2);assert.equal(stale.benchmark.value,null);assert.equal(stale.risk.largest_position,null);
 });
 test('blocked ledger never displays invented initial balances or a reassuring empty portfolio',async t=>{
@@ -183,4 +187,24 @@ test('database permits only one official inception while preserving idempotent r
  assert.deepEqual(await append(db,{id:original.id,kind:original.kind,payload:original.payload,actor},original.created_at),original);
  await assert.rejects(append(db,{id:'second-opening-001',kind:'experiment_opened',payload:original.payload,actor},original.created_at),/UNIQUE/);
  assert.deepEqual(await getEvent(db,original.id),original);
+});
+
+test('comparison requires a fresh reconciliation after all current accounting and failure evidence',async t=>{
+ const {db}=temporaryDatabase(t);await seed(db);assert.equal((await state(db)).portfolio.comparison_complete,true);
+ await append(db,{id:'post-recon-failure',kind:'refresh_failed',actor,payload:{summary:'Synthetic failed refresh'}});
+ const result=await state(db);assert.equal(result.portfolio.comparison_complete,false);assert.equal(result.portfolio.total_return,null);assert.equal(result.benchmark.return,null);
+ const {ledgerView}=await import('../lib/valuation.js');const {readLedger}=await import('../lib/reconciliation.js');const ledger=await readLedger(db);const snapshot=await getEvent(db,'snapshot-fixture-001');
+ const stale={seq:Number.MAX_SAFE_INTEGER,created_at:new Date(Date.now()-86400000).toISOString(),payload:{status:'reconciled',problems:[]}};
+ assert.equal(ledgerView(ledger,snapshot,now(),stale).portfolio.comparison_complete,false);
+ const fresh={...stale,created_at:now()};ledger.economic.active.distribution_cash_cents=Number.MAX_SAFE_INTEGER;
+ const overflow=ledgerView(ledger,snapshot,now(),fresh);assert.equal(overflow.portfolio.economic_value,null);assert.equal(overflow.portfolio.comparison_complete,false);
+});
+
+test('interrupted refresh cannot certify a newer drifting snapshot with an older reconciliation',async t=>{
+ const {db}=temporaryDatabase(t);await seed(db);const original=await getEvent(db,'snapshot-fixture-001');assert.equal((await state(db)).portfolio.comparison_complete,true);
+ await append(db,{id:'new-drifting-snapshot',kind:'snapshot',actor,payload:{...original.payload,account:{...original.payload.account,cash:99999}}});
+ const drift=await state(db);assert.equal(drift.account_drift,true);assert.equal(drift.portfolio.comparison_complete,false);assert.equal(drift.portfolio.total_return,null);
+ await append(db,{id:'drift-claims-reconciled',kind:'reconciliation',actor,payload:{status:'reconciled',ledger_status:'ready',problems:[]}});assert.equal((await state(db)).portfolio.comparison_complete,false);
+ await append(db,{id:'new-flat-snapshot',kind:'snapshot',actor,payload:original.payload});assert.equal((await state(db)).portfolio.comparison_complete,false);
+ await append(db,{id:'flat-fresh-reconciliation',kind:'reconciliation',actor,payload:{status:'reconciled',ledger_status:'ready',problems:[]}});assert.equal((await state(db)).portfolio.comparison_complete,true);
 });

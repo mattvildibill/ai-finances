@@ -31,3 +31,7 @@ API contracts checked on 27 October 2026: [Alpaca FILL activities endpoint](http
 ## Staged readiness continuation
 
 See [the continuation report](LAUNCH-CONTINUATION-2026-10-27.md) for revised execution fencing, ledger-derived state, single-inception migration and actual test results. [The corporate-action path](CORPORATE-ACTION-PATH.md) describes the unwired evidence collector and remaining entitlement/economic-ledger work. Neither feature enables trading or establishes total-return support.
+
+## Bounded candidate integration
+
+The newer [bounded candidate report](BOUNDED-RELEASE-CANDIDATE-2026-10-27.md) supersedes the earlier statement that all action replay is disconnected. Reviewed ordinary cash entitlements/payments and exact unchanged-identity whole-share splits now share receipt-time/economic replay with fills. Broker cash remains separate from the economic overlay. Current reviewed action coverage and settled phases can satisfy the action gate, but neither execution nor activation hard-disable was removed. Unsupported notices, version conflicts, late-history entitlement changes and noncent/fractional cases remain explicit blockers.

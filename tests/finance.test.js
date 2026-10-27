@@ -109,3 +109,9 @@ test('exact subcent cash representation preserves sell basis and rejects ambigui
 test('fractional orders are rejected even when size would fit the mandate', () => {
   assert.equal(validateOrder({ ...order, quantity: .5 }, context()).ok, false);
 });
+
+test('modeled distributions never fund orders and increase the conservative economic NAV cash reserve',()=>{
+ const c=context();c.portfolio={...initialPortfolio(),cash_cents:1000200,holdings:{SPY:{quantity:180,cost_cents:9000000}}};c.prices.AAPL.price_cents=100;
+ const small={...order,quantity:1,limit_price_cents:100};assert.equal(validateOrder(small,c).ok,true);
+ const result=validateOrder(small,{...c,modeled_income_cents:1000000});assert.equal(result.ok,false);assert.ok(result.errors.some(e=>e.includes('cash reserve')));
+});

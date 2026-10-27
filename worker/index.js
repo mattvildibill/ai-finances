@@ -1,3 +1,7 @@
+import { collectCorporateActions } from '../lib/corporate-actions.js';
+import { recordActionEvidence,confirmCorporateAction,approveActionCoverage,settleCorporateActions,coverageState } from '../lib/action-settlement.js';
+import { activationPreflight,stageReleaseAttestation } from '../lib/readiness.js';
+import { activateExperiment } from '../lib/activation.js';
 import {state,refresh,submit} from '../lib/service.js';
 import {AppError,isoNow,listEvents} from '../lib/store.js';
 import {executeDecision} from '../lib/execution.js';
@@ -6,6 +10,10 @@ import {validateWriteRequest} from '../lib/request-security.js';
 import {assets} from './assets.generated.js';
 const schemaRecord={type:'object',additionalProperties:false,required:['idempotency_key','kind','payload'],properties:{idempotency_key:{type:'string',minLength:8,maxLength:160},kind:{enum:['research','challenge','decision','revision','verification']},payload:{type:'object',description:'Authored summary, never private chain of thought. Requires title, summary, author. Research/challenge/decision additionally role, evidence [{title,url,observed_at,excerpt}], snapshot_ids. Research/decision: thesis,horizon,uncertainties,change_mind. Challenge: research_id,counterargument. Decision: research_id,challenge_id,action (hold/buy/sell),size USD,symbol for buy/sell,challenge_response. Revision: supersedes. Distinct authors for each role.'}}};
 const toolDefs=[
+{name:'stage_release_attestation',description:'Append a release-specific attestation only for actual completed checks or actual user authorization. Requires existing measured verification IDs; never substitute synthetic tests for broker or hosted evidence. Does not enable execution or activation.',inputSchema:{type:'object',required:['idempotency_key','kind','payload'],properties:{idempotency_key:{type:'string'},kind:{enum:['launch_approval','release_verification']},payload:{type:'object'}},additionalProperties:false}},
+{name:'corporate_actions',description:'Reviewed corporate-action workflow. collect only acquires real raw notices; record captures actual issuer evidence or authored reviews; confirm and coverage validate exact independent bindings; settle appends exact due shared economic phases. Never invent sources or entitlements. Modeled dividends never increase broker cash. Does not enable execution.',inputSchema:{type:'object',required:['operation'],properties:{operation:{enum:['collect','record','confirm','coverage','settle','status']},input:{type:'object'}},additionalProperties:false}},
+{name:'activation_readiness',description:'Read-only prospective activation checks. Returns specific unmet evidence and never enables execution.',inputSchema:{type:'object',required:['snapshot_id'],properties:{snapshot_id:{type:'string'}},additionalProperties:false}},
+{name:'activate_experiment',description:'Controlled single-event prospective inception. Hard-disabled in this preparation release; cannot override any failed prerequisite or backdate the benchmark.',inputSchema:{type:'object',required:['idempotency_key'],properties:{idempotency_key:{type:'string'}},additionalProperties:false}},
 {name:'portfolio_state',description:'Read the paused Blue Capital experiment, latest actual IEX observations, immutable journal, mandate and health. Optionally replay knowledge as of a UTC time.',inputSchema:{type:'object',properties:{as_of:{type:'string'}},additionalProperties:false}},
 {name:'refresh_market',description:'Fetch Alpaca paper account and AAPL/MSFT/SPY IEX observations, then inspect fill activities for read-only reconciliation in persistent storage. No trade. Use a stable idempotency key for retries.',inputSchema:{type:'object',required:['idempotency_key'],properties:{idempotency_key:{type:'string'}},additionalProperties:false}},
 {name:'submit_record',description:'Append structured researcher, independent challenger or portfolio-manager output. Originals cannot be edited. A hold decision is valid. This does not execute trades.',inputSchema:schemaRecord},
@@ -26,6 +34,19 @@ function authorize(request,env){
 }
 async function call(name,args,env,actor){
  if(!env.DB)throw new AppError('Persistent database is not bound.',503);
+ if(name==='corporate_actions'){
+  const input=args.input||{};
+  if(args.operation==='collect')return collectCorporateActions(env.DB,env,input,actor);
+  if(args.operation==='record')return recordActionEvidence(env.DB,input,actor);
+  if(args.operation==='confirm')return confirmCorporateAction(env.DB,input,actor);
+  if(args.operation==='coverage')return approveActionCoverage(env.DB,input,actor);
+  if(args.operation==='settle')return settleCorporateActions(env.DB,actor);
+  if(args.operation==='status')return coverageState(env.DB);
+  throw new AppError('Unknown corporate-action operation.');
+ }
+ if(name==='stage_release_attestation')return stageReleaseAttestation(env.DB,env,args,actor);
+ if(name==='activation_readiness')return activationPreflight(env.DB,args.snapshot_id,isoNow(),env.RELEASE_REVISION);
+ if(name==='activate_experiment')return activateExperiment(env.DB,env,args,actor);
  if(name==='portfolio_state')return state(env.DB,args.as_of);
  if(name==='refresh_market')return refresh(env.DB,env,args.idempotency_key,actor);
  if(name==='submit_record')return submit(env.DB,args,actor);

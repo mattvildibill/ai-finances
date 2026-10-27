@@ -35,3 +35,7 @@ Alpaca secrets reside in Sites production runtime. The Site is owner-private. Na
 ## Undeployed readiness work
 
 The staged source continuation is documented in [LAUNCH-CONTINUATION-2026-10-27.md](LAUNCH-CONTINUATION-2026-10-27.md). Execution remains hard-disabled. New buy/sell proposals in that release require explicit `limit_price_cents` and a timezone-qualified future `valid_until`; no quote-derived manager limit is inferred. Do not copy synthetic test approvals, fills or action evidence into official records.
+
+## Bounded candidate completion
+
+[BOUNDED-RELEASE-CANDIDATE-2026-10-27.md](BOUNDED-RELEASE-CANDIDATE-2026-10-27.md) supersedes earlier implementation TODOs: shared exact ordinary-action replay and atomic prospective activation are implemented and tested, while production execution/activation remain hard-disabled. See [CORPORATE-ACTION-OPERATIONS.md](CORPORATE-ACTION-OPERATIONS.md) for the typed staged tool contract. Actual runtime, issuer, broker-settlement and release evidence remain mandatory; this source work did not produce any of them in the official journal.

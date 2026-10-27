@@ -138,3 +138,13 @@ test('authenticated MCP update/readback uses the same persistent data as HTTP st
   const result = await (await app.fetch(new Request('https://private.test/mcp', { method: 'POST', headers, body: JSON.stringify(rpc) }), env)).json(); assert.equal(result.result.isError, undefined);
   const readback = await (await app.fetch(new Request('https://private.test/api/state', { headers }), env)).json(); assert.equal(readback.events.find(e => e.id === 'mcp-roundtrip-001').payload.summary, 'Test write persisted');
 });
+
+test('new corporate-action and activation tools retain authentication and hard-disable boundaries',async t=>{
+ const {db}=temporaryDatabase(t);const app=await worker();const env={DB:db,TRADING_ENABLED:'true'};
+ for(const name of ['corporate_actions','activation_readiness','activate_experiment']){
+  const rpc={jsonrpc:'2.0',id:1,method:'tools/call',params:{name,arguments:{operation:'status',snapshot_id:'unknown',idempotency_key:'activation-fixture-001'}}};
+  const anon=await (await app.fetch(new Request('https://private.test/mcp',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(rpc)}),env)).json();assert.equal(anon.result.isError,true);
+  if(name==='activate_experiment'){const response=await (await app.fetch(new Request('https://private.test/mcp',{method:'POST',headers:{'content-type':'application/json','oai-authenticated-user-id':'fixture-owner'},body:JSON.stringify(rpc)}),env)).json();assert.equal(response.result.isError,true);assert.match(response.result.content[0].text,/hard-disabled/);}
+ }
+ assert.equal((await listEvents(db,new Date().toISOString())).length,0);
+});

@@ -74,7 +74,7 @@ function renderState(state) {
   $('#cash-value').textContent = money(cash);
   $('#capital-state').textContent = started ? (paused ? 'PAUSED' : 'PAPER PORTFOLIO') : 'PRE-LAUNCH';
   $('#capital-title').firstChild.textContent = started ? 'PORTFOLIO VALUE ' : 'EXPERIMENT CAPITAL ';
-  $('#capital-context').textContent = started ? `Since ${formatTime(experiment.started_at, true)}` : 'Allocated starting cash · Official experiment not started';
+  $('#capital-context').textContent = started ? `Broker ledger · Since ${formatTime(experiment.started_at, true)} · Modeled comparison NAV ${money(portfolio.economic_value)}` : 'Allocated starting cash · Official experiment not started';
   $('#return-value').textContent = started ? percent(portfolio.total_return) : 'Not started';
   $('#return-value').style.fontSize = started ? '' : '27px';
   $('#return-detail').textContent = started ? `${money(portfolio.gain ?? portfolio.total_gain)} since inception · ${portfolio.performance_basis || 'Performance basis unavailable'}` : 'Performance starts at inception.';
