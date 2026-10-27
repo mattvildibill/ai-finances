@@ -14,7 +14,7 @@ Source of record: https://github.com/mattvildibill/ai-finances . Sites requires 
 
 ## Run checks
 
-Node 24: `npm ci`, `npm test`, `npm run build`. `npm run db:generate` creates schema migrations after changes; never rewrite applied SQL. Build embeds `web/` in a Worker and packages migrations. Publish `dist/` as a tar archive after pushing the matching commit to the Site repository. Production secrets belong in Sites, not `.env` or hosting.json.
+Node 24: `npm ci`, `npm run build`, `npm test`. `npm run db:generate` creates schema migrations after changes; never rewrite applied SQL. Build embeds `web/` in a Worker and packages migrations. Publish `dist/` as a tar archive after pushing the matching commit to the Site repository. Production secrets belong in Sites, not `.env` or hosting.json.
 
 ## Readiness and limits
 

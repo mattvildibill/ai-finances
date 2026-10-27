@@ -95,3 +95,17 @@ test('volatility uses 20 sample daily returns, rejects duplicate and reversed NA
   assert.throws(() => riskMetrics([observations[1], observations[0]]), /chronological/);
   assert.throws(() => riskMetrics([observations[0], { ...observations[0], at: '2026-10-01T21:00:00Z' }]), /daily/);
 });
+
+test('exact subcent cash representation preserves sell basis and rejects ambiguity or rounding', () => {
+  const b = { ...fill('subcent-buy', 'buy', 5), price_text: '10.002' }; delete b.price_cents;
+  let p = applyFill(initialPortfolio(), b); assert.equal(p.holdings.AAPL.cost_cents, 5001);
+  const s = { ...fill('subcent-sale', 'sell', 5), price_text: '11.004' }; delete s.price_cents;
+  p = applyFill(p, s); assert.equal(p.cash_cents, 10000501); assert.equal(p.realized_pnl_cents, 501);
+  assert.deepEqual(p.holdings, {});
+  assert.throws(() => applyFill(initialPortfolio(), { ...b, price_text: '10.001' }), /fractional-cent/);
+  assert.throws(() => applyFill(initialPortfolio(), { ...b, price_cents: 1000 }), /ambiguous/);
+  assert.throws(() => applyFill(initialPortfolio(), { ...b, quantity: .5 }), /whole share/);
+});
+test('fractional orders are rejected even when size would fit the mandate', () => {
+  assert.equal(validateOrder({ ...order, quantity: .5 }, context()).ok, false);
+});

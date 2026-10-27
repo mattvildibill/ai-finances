@@ -1,3 +1,4 @@
+import { createBenchmark } from '../lib/finance.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { append, getEvent, listEvents } from '../lib/store.js';
@@ -7,7 +8,7 @@ import { temporaryDatabase, testEnv } from './helpers.js';
 const actor = 'fixture:reconciler';
 const clientId = 'blue-' + 'a'.repeat(40);
 const baseTime = () => new Date(Date.now() - 10000).toISOString();
-async function opening(db, start = baseTime()) { return append(db, { id: 'official-opening-fixture', kind: 'experiment_opened', payload: { initial_cash_cents: 10000000, started_at: start, benchmark: { started_at: start, holdings: { SPY: { quantity: 200, cost_cents: 10000000 } }, cash_cents: 0 } }, actor }, start); }
+async function opening(db, start = baseTime()) { return append(db, { id: 'official-opening-fixture', kind: 'experiment_opened', payload: { initial_cash_cents: 10000000, started_at: start, benchmark: createBenchmark({ started_at: start, observed_at: start, market_time: start, price_cents: 50000 }) }, actor }, start); }
 async function intent(db) { return append(db, { id: 'order-intent-fixture', kind: 'order_intent', payload: { client_order_id: clientId, decision_id: 'decision-fixture', order: { symbol: 'AAPL', side: 'buy', qty: '5', type: 'limit', time_in_force: 'day', limit_price: '11.00' } }, actor }); }
 function activity(id, qty = '5', price = '10.00', extra = {}) { return { id, activity_type: 'FILL', type: 'fill', order_id: 'broker-order-fixture', symbol: 'AAPL', side: 'buy', qty, price, transaction_time: new Date(Date.now() - 1000).toISOString(), ...extra }; }
 function broker({ activities = [], cash = '99950.00', qty = '5', filled = '5', status = 'filled', openOrders = [], orderPatch = {}, pageHandler } = {}) {
@@ -112,4 +113,46 @@ test('a lost execution lease stops receipt and ledger writes without deleting it
   await assert.rejects(reconcile(db, testEnv, 'lost-lease-run', actor, fetcher), /lease was lost/);
   assert.equal((await events(db)).filter(e => ['ledger_fill', 'broker_order', 'broker_activity', 'reconciliation'].includes(e.kind)).length, 0);
   assert.equal((await db.prepare("SELECT token FROM locks WHERE name='execution'").first()).token, 'new-owner');
+});
+
+test('subcent unit prices settle only when exact whole-share cash is cent-denominated', async t => {
+  const { db } = temporaryDatabase(t); await opening(db); await intent(db);
+  const raw = activity('exact-subcent', '5', '10.002');
+  const f = broker({ activities: [raw], cash: '99949.99' });
+  const result = await reconcile(db, testEnv, 'exact-subcent-run', actor, f.fetcher);
+  assert.equal(result.payload.new_fills, 1); assert.equal(result.payload.orders_closed, 1);
+  const ledger = await readLedger(db); assert.equal(ledger.portfolio.cash_cents, 9994999);
+  assert.equal(ledger.portfolio.holdings.AAPL.cost_cents, 5001);
+  assert.equal(ledger.portfolio.events[0].price_text, '10.002');
+  assert.equal(ledger.portfolio.events[0].price_cents, undefined);
+  await reconcile(db, testEnv, 'exact-subcent-retry', actor, f.fetcher);
+  assert.equal((await readLedger(db)).portfolio.cash_cents, 9994999);
+});
+test('closed orders are refreshed and disappeared activity remains a blocker', async t => {
+  const { db } = temporaryDatabase(t); await opening(db); await intent(db);
+  await reconcile(db, testEnv, 'before-disappearance', actor, broker({ activities: [activity('later-missing')] }).fetcher);
+  const f = broker({ activities: [], filled: '4', status: 'canceled' });
+  const result = await reconcile(db, testEnv, 'after-disappearance', actor, f.fetcher);
+  assert.ok(f.calls.some(c => c.url.includes('by_client_order_id')));
+  assert.ok(result.payload.problems.some(p => p.code === 'activity_history_missing'));
+  assert.ok(result.payload.problems.some(p => p.code === 'fill_quantity_mismatch'));
+  assert.equal((await readLedger(db)).portfolio.cash_cents, 9995000);
+});
+test('conflicting activity versions remain blocked when omitted in a later response', async t => {
+  const { db } = temporaryDatabase(t); await opening(db); await intent(db);
+  const raw = activity('persistent-correction');
+  await reconcile(db, testEnv, 'conflict-original', actor, broker({ activities: [raw] }).fetcher);
+  await reconcile(db, testEnv, 'conflict-changed', actor, broker({ activities: [{ ...raw, price: '11.00' }] }).fetcher);
+  const result = await reconcile(db, testEnv, 'conflict-omitted', actor, broker({ activities: [] }).fetcher);
+  assert.ok(result.payload.problems.some(p => p.code === 'activity_changed'));
+  assert.equal((await readLedger(db)).fill_count, 1);
+});
+test('replay rejects missing, delayed, or financially inconsistent opening benchmarks', async t => {
+  for (const patch of [null, { started_at: '2000-01-01T00:00:00Z' }, { cash_cents: 1 }]) {
+    const { db } = temporaryDatabase(t); const start = baseTime();
+    const benchmark = patch === null ? null : { ...createBenchmark({ started_at: start, observed_at: start, market_time: start, price_cents: 50000 }), ...patch };
+    await append(db, { id: 'invalid-opening-test', kind: 'experiment_opened', payload: { initial_cash_cents: 10000000, started_at: start, benchmark }, actor }, start);
+    const result = await readLedger(db); assert.equal(result.status, 'blocked'); assert.equal(result.portfolio, null);
+    assert.equal(result.problems[0].code, 'invalid_opening');
+  }
 });
