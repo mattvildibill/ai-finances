@@ -170,3 +170,79 @@ test('validation MCP operations enforce authentication, write origin and disable
  }
  assert.equal((await records(db)).length,0);
 });
+
+// Later authored evidence must invalidate a pinned pass, without destroying recovery.
+async function invalidateCheck(db,outcome,check='independent_code_review',suffix='one'){
+ const {submit}=await import('../lib/service.js');
+ return submit(db,{idempotency_key:'later-validation-'+suffix,kind:'verification',payload:{title:'Synthetic later review',summary:'Synthetic invalidation regression only',author:'independent-test-reviewer',check,revision,outcome}},actor);
+}
+test('later failed and pending measured checks block release staging through supported submit',async t=>{
+ for(const outcome of ['failed','pending'])for(const check of VALIDATION_CHECKS){
+  const {db}=temporaryDatabase(t),{protocol,release}=await seed(db,{stage:false});
+  await stageValidation(db,env,{idempotency_key:'validation-protocol',kind:'validation_protocol',payload:protocol},actor);
+  await invalidateCheck(db,outcome,check);
+  await assert.rejects(stageValidation(db,env,{idempotency_key:'validation-release',kind:'validation_release',payload:release},actor),/superseded/);
+  assert.equal((await records(db)).filter(e=>e.kind==='validation_release').length,0);
+ }
+});
+test('stale pinned approvals cannot activate or execute after later non-passed evidence',async t=>{
+ for(const outcome of ['failed','pending']){
+  const first=temporaryDatabase(t);await seed(first.db);const f=broker();await invalidateCheck(first.db,outcome);
+  await assert.rejects(activateValidation(first.db,env,{idempotency_key:'blocked-inception'},actor,f.fetcher),/superseded/);
+  assert.equal((await records(first.db)).filter(e=>e.kind==='experiment_opened').length,0);assert.equal(f.posts,0);
+  const second=temporaryDatabase(t);const {f:g}=await prepared(second.db);await invalidateCheck(second.db,outcome);
+  await assert.rejects(executeValidationDecision(second.db,env,'validation-decision',actor,g.fetcher),/superseded/);
+  assert.equal((await records(second.db)).filter(e=>e.kind==='order_intent').length,0);assert.equal(g.posts,0);
+ }
+});
+test('later non-passed evidence does not prevent GET-only recovery of an ambiguous existing intent',async t=>{
+ const {db}=temporaryDatabase(t);await prepared(db);const f=broker({ambiguous:true});
+ await assert.rejects(executeValidationDecision(db,env,'validation-decision',actor,f.fetcher),/ambiguous/);
+ await invalidateCheck(db,'failed');await invalidateCheck(db,'pending','private_hosting','two');
+ await executeValidationDecision(db,env,'validation-decision',actor,f.fetcher);
+ assert.equal(f.posts,1);assert.equal(f.lookups,1);assert.equal((await records(db)).filter(e=>e.kind==='order_intent').length,1);
+});
+test('final submission fence rejects non-passed evidence arriving after durable intent',async t=>{
+ for(const outcome of ['failed','pending']){
+  const {db}=temporaryDatabase(t);await prepared(db);const f=broker(),prepare=db.prepare.bind(db);let injected=false;
+  db.prepare=sql=>{const statement=prepare(sql);if(sql.startsWith('UPDATE locks SET expires_at=')){
+   const bind=statement.bind.bind(statement);statement.bind=(...args)=>{const bound=bind(...args),run=bound.run.bind(bound);bound.run=async()=>{const result=await run();
+    if(!injected&&await prepare("SELECT id FROM events WHERE kind='order_intent' LIMIT 1").first()){
+     injected=true;
+     // Adversarial journal insertion at the last asynchronous renewal; ordinary submit is lease-serialized.
+     await append(db,{id:'final-fence-invalidation',kind:'verification',actor,payload:{check:'independent_code_review',revision,outcome,summary:'Synthetic final fence'}});
+    }return result;};return bound;};}return statement;};
+  await assert.rejects(executeValidationDecision(db,env,'validation-decision',actor,f.fetcher),/superseded|Journal changed/);
+  assert.equal(injected,true);assert.equal(f.posts,0);assert.equal((await records(db)).filter(e=>e.kind==='order_intent').length,1);
+ }
+});
+test('staging journal fence rejects evidence changed after checks before receipt insertion',async t=>{
+ const {db}=temporaryDatabase(t),{protocol,release}=await seed(db,{stage:false});
+ await stageValidation(db,env,{idempotency_key:'validation-protocol',kind:'validation_protocol',payload:protocol},actor);
+ const prepare=db.prepare.bind(db);let injected=false;
+ db.prepare=sql=>{const statement=prepare(sql);if(sql.startsWith('UPDATE locks SET expires_at=')){const bind=statement.bind.bind(statement);statement.bind=(...args)=>{const bound=bind(...args),run=bound.run.bind(bound);bound.run=async()=>{const result=await run();if(!injected){injected=true;await append(db,{id:'stage-fence-invalidation',kind:'verification',actor,payload:{check:'private_hosting',revision,outcome:'pending',summary:'Synthetic stage race'}});}return result;};return bound;};}return statement;};
+ await assert.rejects(stageValidation(db,env,{idempotency_key:'validation-release',kind:'validation_release',payload:release},actor),/journal changed/);
+ assert.equal((await records(db)).filter(e=>e.kind==='validation_release').length,0);
+});
+
+test('later failure requires a newly pinned measured pass; an unrelated revision does not invalidate',async t=>{
+ const {db}=temporaryDatabase(t),{protocol,release}=await seed(db,{stage:false});
+ await stageValidation(db,env,{idempotency_key:'validation-protocol',kind:'validation_protocol',payload:protocol},actor);
+ await append(db,{id:'other-revision-failure',kind:'verification',actor,payload:{check:'private_hosting',revision:'c'.repeat(40),outcome:'failed',summary:'Another release only'}});
+ await invalidateCheck(db,'pending');
+ const {submit}=await import('../lib/service.js');
+ const pass=await submit(db,{idempotency_key:'new-measured-code-pass',kind:'verification',payload:{title:'New actual check in isolated fixture',author:'reviewer',summary:'Synthetic fresh measured check',check:'independent_code_review',revision,outcome:'passed'}},actor);
+ await assert.rejects(stageValidation(db,env,{idempotency_key:'stale-release-pins',kind:'validation_release',payload:release},actor),/superseded/);
+ await stageValidation(db,env,{idempotency_key:'validation-release',kind:'validation_release',payload:{...release,checks:{...release.checks,independent_code_review:pass.id}}},actor);
+ const f=broker();await activateValidation(db,env,{idempotency_key:'fresh-approval-opening'},actor,f.fetcher);assert.equal(f.posts,0);
+});
+test('inception journal fence rejects a later failed review arriving at final renewal',async t=>{
+ const {db}=temporaryDatabase(t);await seed(db);const f=broker(),prepare=db.prepare.bind(db);let heads=0,injected=false;
+ db.prepare=sql=>{const statement=prepare(sql);
+  if(sql==='SELECT COALESCE(MAX(seq),0) AS seq FROM events'){const first=statement.first.bind(statement);statement.first=async()=>{const result=await first();heads++;return result;};}
+  if(sql.startsWith('UPDATE locks SET expires_at=')){const bind=statement.bind.bind(statement);statement.bind=(...args)=>{const bound=bind(...args),run=bound.run.bind(bound);bound.run=async()=>{const result=await run();if(heads>=2&&!injected){injected=true;await append(db,{id:'activation-fence-failure',kind:'verification',actor,payload:{check:'independent_code_review',revision,outcome:'failed',summary:'Synthetic final inception race'}});}return result;};return bound;};}
+  return statement;
+ };
+ await assert.rejects(activateValidation(db,env,{idempotency_key:'invalidation-during-opening'},actor,f.fetcher),/journal changed|superseded/);
+ assert.equal(injected,true);assert.equal((await records(db)).filter(e=>e.kind==='experiment_opened').length,0);assert.equal(f.posts,0);
+});
