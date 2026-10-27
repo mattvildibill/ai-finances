@@ -9,7 +9,8 @@ import {inspectManagedInstrument,managedInstrumentCandidate,approveManagedInstru
 import {seedManagedCoverage} from './managed-action-fixtures.js';
 import {executeManagedDecision,managedStatus} from '../lib/managed-execution.js';
 import {reconcile,readLedger} from '../lib/reconciliation.js';
-import {submit,state} from '../lib/service.js';
+import {submit,state,refresh,observeManagedTarget} from '../lib/service.js';
+import {toolDefs} from '../worker/index.js';
 import {usdNanos} from '../lib/precision.js';
 const now=()=>new Date().toISOString(),revision='c'.repeat(40),actor='managed-engine-fixture';
 const env={...testEnv,RELEASE_REVISION:revision,MANAGED_ENABLED:'true'};
@@ -131,4 +132,42 @@ test('both managed status views show unsupported corrections, but not closed or 
  assert.equal((await state(f.db,now(),env)).operation.problem,null);assert.equal((await managedStatus(f.db,env)).problem,null);
  f.broker.activities.push({id:'managed-unsupported-correction',activity_type:'FILL',type:'trade_correction',order_id:'unsupported',symbol:'SPY',side:'buy',qty:'1',price:'500',transaction_time:now()});
  const recon=await settle(f,'managed-status-correction');assert.equal(recon.payload.status,'blocked');await assertAccountBlocked(f);
+});
+
+
+test('approved unowned target observation stores real research prices without enabling or ordering',async t=>{
+ const definition=toolDefs.find(t=>t.name==='managed_portfolio');assert.ok(definition.inputSchema.properties.operation.enum.includes('observe_target'));
+ const f=await fixture(t),before=await readCompleteHistory(f.db),calls=[];
+ f.broker.hook=async(u,o)=>calls.push({path:u.pathname,method:o.method,symbols:u.searchParams.get('symbols')});
+ const input={idempotency_key:'research-target-unh',symbol:'UNH'};
+ const snapshot=await observeManagedTarget(f.db,{...env,MANAGED_ENABLED:'false'},input,actor,f.broker.fetcher);
+ assert.equal(snapshot.kind,'snapshot');assert.deepEqual(Object.keys(snapshot.payload.quotes).sort(),['SPY','UNH']);
+ assert.equal(snapshot.payload.quotes.UNH.price_text,'100');assert.equal(snapshot.payload.quotes.UNH.feed,'iex');
+ assert.ok(snapshot.payload.quotes.UNH.market_data_at);assert.ok(snapshot.payload.quotes.UNH.retrieved_at);
+ assert.equal(snapshot.payload.target_observation.instrument_id,f.approved.UNH.id);assert.equal(snapshot.payload.target_observation.trading_permitted,false);
+ assert.equal(snapshot.payload.positions.some(p=>p.symbol==='UNH'),false);assert.equal(f.broker.posts,0);assert.ok(calls.every(c=>c.method==='GET'));
+ const retry=await observeManagedTarget(f.db,env,input,actor,f.broker.fetcher);assert.deepEqual(retry,snapshot);
+ await assert.rejects(observeManagedTarget(f.db,env,{...input,symbol:'SPY'},actor,f.broker.fetcher),/different observation/);
+ await assert.rejects(refresh(f.db,env,input.idempotency_key,actor,f.broker.fetcher),/different observation/);
+ const after=await readCompleteHistory(f.db);assert.deepEqual(after.slice(0,before.length),before);
+ assert.ok(after.slice(before.length).every(e=>['snapshot','reconciliation','refresh_failed'].includes(e.kind)));
+});
+
+test('target observation rejects unapproved symbols and changed identity; failure creates no price or order',async t=>{
+ const f=await fixture(t);let requests=0;f.broker.hook=async()=>requests++;
+ for(const symbol of ['UNKNOWN','https://evil.invalid','SPY,UNH',''])await assert.rejects(observeManagedTarget(f.db,env,{idempotency_key:'invalid-target-'+requests,symbol},actor,f.broker.fetcher));
+ assert.equal(requests,0);
+ await assert.rejects(observeManagedTarget(f.db,env,{idempotency_key:'bad-extra-input',symbol:'UNH',url:'https://evil.invalid'},actor,f.broker.fetcher));
+ f.broker.identityChange=true;
+ await assert.rejects(observeManagedTarget(f.db,env,{idempotency_key:'changed-target-identity',symbol:'UNH'},actor,f.broker.fetcher));
+ assert.equal(await getEvent(f.db,'changed-target-identity'),null);assert.equal(f.broker.posts,0);
+});
+
+test('target observation retains stale closed-market prints honestly without execution permission',async t=>{
+ const f=await fixture(t);f.broker.stale=true;
+ const fetcher=async(url,options)=>new URL(url).pathname==='/v2/clock'?Response.json({is_open:false,timestamp:now(),next_open:new Date(Date.now()+86400000).toISOString(),next_close:new Date(Date.now()+2*86400000).toISOString()}):f.broker.fetcher(url,options);
+ const result=await observeManagedTarget(f.db,env,{idempotency_key:'closed-target-observation',symbol:'UNH'},actor,fetcher);
+ assert.equal(result.payload.clock.is_open,false);assert.ok(result.payload.quotes.UNH.age_seconds>120);assert.equal(result.payload.execution_ready,false);assert.equal(result.payload.target_observation.trading_permitted,false);assert.equal(f.broker.posts,0);
+ await assert.rejects(observeManagedTarget(f.db,env,{idempotency_key:'failed-target-observation',symbol:'UNH'},actor,async()=>new Response('{}',{status:503})));
+ assert.equal(await getEvent(f.db,'failed-target-observation'),null);
 });
