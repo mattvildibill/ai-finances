@@ -10,3 +10,5 @@
 .observed-chart{display:block;width:100%;height:auto;min-height:160px}.observed-chart text{fill:var(--muted);font:12px Arial,sans-serif}.observed-legend{display:flex;gap:20px;font-size:13px}.observed-legend span:first-child{color:var(--blue)}.observed-legend span:last-child{color:#947338}
 
 .observation-table{margin-top:14px;font-size:13px}.observation-table summary{padding:10px 0;min-height:44px;color:var(--blue)}.observation-table caption{text-align:left;font-size:13px;color:var(--muted)}.observation-table td{font-size:13px;white-space:normal;min-width:110px}
+
+.holding-description{display:block;max-width:24ch;white-space:normal;font-size:12px;color:var(--muted);font-weight:normal}.investment-card h2{margin-top:8px}.investment-card .record-card{border-top:0;padding:12px 0}.fill-summary{font-size:14px;color:var(--muted)}

@@ -301,3 +301,40 @@ test('last verified historical NAV is separated from current unknown accounting'
  const view=ui();view.renderState({as_of:'2026-10-27T21:00:00Z',experiment:{status:'paused',started_at:'2026-10-27T13:31:45Z'},portfolio:{value:null,cash:null,holdings:[],holdings_status:'unknown',valuation_status:'unavailable'},last_verified_valuation:{at:'2026-10-27T20:00:59Z',value:100007.92,cash:96160.02}});
  assert.equal(view.get('#portfolio-value').textContent,'$100,007.92');assert.equal(view.get('#capital-title').firstChild.textContent,'LAST VERIFIED VALUE ');assert.match(view.get('#capital-context').textContent,/Historical observation/);assert.equal(view.get('#cash-value').textContent,'—');assert.equal(view.get('#invested-value').textContent,'—');assert.equal(view.get('#return-value').textContent,'—');
 });
+
+test('investment highlights use exact-source plain copy and retain every original behind details',()=>{
+ const view=ui();view.get('#decision-filter').value='investment';
+ const hold={id:'blue-review-hold-2026-10-27-close',digest:'1791147c1f660e251bfac7fadf9c055ce69024056a26cf5ee83f446920ec8dd0',kind:'decision',created_at:'2026-10-27T20:20:00Z',payload:{action:'hold',title:'accept narrower reconciliation and distribution conclusions',summary:'Original complex statement',thesis:'Full original thesis'}};
+ const setup={id:'blue-opening-limit-policy-2026-10-27',digest:'1366c967ee77352dcc2e8d8177cdf131d7d6eca127fdd4b8d705ae09775f47aa',kind:'decision',created_at:'2026-10-27T20:21:00Z',payload:{action:'hold',title:'Setup',summary:'Actual setup wording'}};
+ const earlier={id:'prior-hold',kind:'decision',created_at:'2026-10-27T19:00:00Z',payload:{action:'hold',summary:'Earlier hold'}};
+ const before=JSON.stringify([hold,setup,earlier]);view.renderRecords({events:[hold,setup,earlier]});
+ const html=view.get('#latest-decision').innerHTML;
+ assert.match(html,/Keep SPY; make no new purchase/);assert.match(html,/Prices were too old/);
+ const visible=html.split('<details')[0];assert.doesNotMatch(visible,/narrower reconciliation|2026-|Recorded |Immutable/);
+ assert.match(html,/Original complex statement/);assert.match(html,/Full original thesis/);
+ const list=view.get('#decision-list').innerHTML;assert.match(list,/Earlier reviews, research &amp; setup \(2\)/);assert.match(list,/Actual setup wording/);assert.equal(JSON.stringify([hold,setup,earlier]),before);
+ hold.digest='changed';view.renderRecords({events:[hold]});assert.doesNotMatch(view.get('#latest-decision').innerHTML,/Prices were too old/);assert.match(view.get('#latest-decision').innerHTML,/original explanation is available/);
+});
+
+test('trade highlights require linked actual fill evidence and distinguish partial, full and conflicting outcomes',()=>{
+ const view=ui();view.get('#decision-filter').value='investment';
+ const decision={id:'d',kind:'decision',payload:{action:'buy',symbol:'SPY',summary:'Proposal',plain_language_summary:'Small first purchase <img src=x onerror=bad()>'}};
+ const intent={id:'i',kind:'order_intent',payload:{decision_id:'d',order:{symbol:'SPY',side:'buy',qty:'2'}}};
+ const fill={id:'f',kind:'ledger_fill',payload:{intent_id:'i',fill:{symbol:'SPY',side:'buy',quantity:1,price_text:'767.5'}}};
+ const closure={id:'c',kind:'order_closed',payload:{intent_id:'i',status:'filled',accounted_quantity:'2'}};
+ const render=events=>{view.renderRecords({events});return view.get('#latest-decision').innerHTML;};
+ assert.match(render([decision]),/Proposed purchase · not a confirmed fill/);
+ assert.match(render([decision,intent]),/outcome not confirmed/);
+ assert.match(render([decision,intent,fill,closure]),/Partial fill recorded/);
+ fill.payload.fill.quantity=2;assert.match(render([decision,intent,fill]),/Fill recorded · completion unconfirmed/);const full=render([decision,intent,fill,closure]);assert.match(full,/Filled paper purchase/);assert.match(full,/2 SPY shares at \$767.50 each/);assert.doesNotMatch(full,/<img/);assert.match(full,/&lt;img/);
+ assert.match(render([decision,intent,fill,closure,{kind:'order_closure_conflict',id:'bad',payload:{intent_id:'i'}}]),/Trade record needs checking/);
+ fill.payload.intent_id='unrelated';assert.doesNotMatch(render([decision,intent,fill,closure]),/Filled paper purchase|Recorded fills:/);
+ fill.payload.intent_id='i';fill.payload.fill.quantity=null;assert.doesNotMatch(render([decision,intent,fill,closure]),/Filled paper purchase|Recorded fills:/);
+});
+
+test('simplified dashboard retains blocked-state warnings, SPY explanation and unchanged monetary loss',()=>{
+ const view=ui();view.renderState({experiment:{status:'paused',started_at:'2026-10-27T13:30:00Z'},operation:{authorization:'expired'},accounting:{status:'ready'},portfolio:{value:99958,cash:96000,gain:-42,total_return:-0.00042,holdings:[{symbol:'SPY',quantity:5,cost_basis:4000,market_value:3958,unrealized_pl:-42}]}});
+ assert.equal(view.get('#return-value').textContent,'-$42.00');assert.match(view.get('#pause-detail').textContent,/permission has ended/);assert.match(view.get('#holdings-body').innerHTML,/Fund holding large US companies/);assert.doesNotMatch(view.get('#capital-state').textContent,/READY/);
+ view.renderState({experiment:{status:'paused',started_at:'2026-10-27T13:30:00Z'},operation:{authorization:'expired'},account_drift:true,portfolio:{}});assert.equal(view.get('#pause-detail').textContent,'Account checks need attention. No new trades.');
+ const page=readFileSync(new URL('../web/index.html',import.meta.url),'utf8');assert.match(page,/<option value="investment" selected>/);assert.match(page,/GAIN \/ LOSS/);assert.match(page,/What we own/);
+});

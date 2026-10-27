@@ -78,25 +78,25 @@ function renderState(state) {
   const cash = portfolio.cash;
   const historical = !numeric(value) && state.last_verified_valuation && numeric(state.last_verified_valuation.value) ? state.last_verified_valuation : null;
   $('#portfolio-value').textContent = money(historical ? historical.value : value);
-  $('#state-time').textContent = `State · ${formatTime(state.as_of)}${portfolio.valuation_status === 'unavailable' ? ' · Valuation unavailable' : portfolio.valuation_status === 'last_known' ? ' · Last-known marks' : ''}`;
+  $('#state-time').textContent = 'Simulated investing · Real market prices';
   $('#invested-value').textContent = knownRatio(cash, value) === null ? '—' : money(Number(value) - Number(cash));
   $('#cash-value').textContent = money(cash);
-  $('#capital-state').textContent = !statusKnown ? 'UNVERIFIED' : started ? (state.operation?.authorization==='expired'?'SESSION EXPIRED':paused ? 'PAUSED' : 'PAPER PORTFOLIO') : unstarted ? 'PRE-LAUNCH' : 'UNVERIFIED';
+  $('#capital-state').textContent = !statusKnown ? 'UNVERIFIED' : started ? (state.operation?.authorization==='expired'?'NO NEW TRADES':paused ? 'PAUSED' : 'PAPER PORTFOLIO') : unstarted ? 'PRE-LAUNCH' : 'UNVERIFIED';
   $('#capital-title').firstChild.textContent = unstarted ? 'OPENING CAPITAL ' : historical ? 'LAST VERIFIED VALUE ' : 'TOTAL VALUE ';
-  $('#capital-context').textContent = historical ? `Historical observation · ${formatTime(historical.at)} · Current valuation unavailable; cash and holdings below are separate.` : started ? `Official ledger · ${portfolio.valuation_status === 'last_known' ? 'Last known' : 'Observed'} ${formatTime(portfolio.observation?.observed_at || portfolio.as_of, true)} · Not an official close` : unstarted ? 'Allocated starting cash · Official experiment not started' : 'Experiment state unavailable';
+  $('#capital-context').textContent = historical ? `Historical observation · ${formatTime(historical.at)} · Current valuation unavailable; cash and holdings below are separate.` : started ? `${portfolio.valuation_status === 'last_known' ? 'Last available price' : 'Prices observed'} ${formatTime(portfolio.observation?.observed_at || portfolio.as_of, true)} · Not an official close` : unstarted ? 'Allocated starting cash · Official experiment not started' : 'Experiment state unavailable';
   const gain = presentOrLegacy(portfolio.gain, portfolio.total_gain);
   $('#return-value').textContent = started ? money(gain) : unstarted ? 'Not started' : '—';
   $('#return-value').classList.toggle('negative', started && numeric(gain) && Number(gain) < 0);
   $('#return-value').classList.toggle('positive', started && numeric(gain) && Number(gain) > 0);
   $('#return-value').style.fontSize = started ? '' : '27px';
-  $('#return-detail').textContent = started ? `${percent(portfolio.total_return)} since inception · ${portfolio.performance_basis || 'Performance basis unavailable'}` : unstarted ? 'Awaiting inception' : 'Inception unverified';
+  $('#return-detail').textContent = started ? `${percent(portfolio.total_return)} since we started` : unstarted ? 'Awaiting inception' : 'Inception unverified';
   $('#relative-return').textContent = started && state.benchmark?.excess_return !== undefined ? percent(state.benchmark.excess_return) : unstarted ? 'Not started' : 'Not available';
   const cashRatio = knownRatio(cash, value);
   $('#cash-percent').textContent = cashRatio === null ? 'Waiting for accounting state' : `${percent(cashRatio)} of portfolio`;
   $('#cash-track').hidden = cashRatio === null;
   $('#cash-track').style.width = `${cashRatio === null ? 0 : Math.min(100, Math.max(0, cashRatio * 100))}%`;
   $('#pause-banner').hidden = !paused || !statusKnown;
-  $('#pause-detail').textContent = experiment.pause_reason || (started ? 'New trading is paused. Existing records remain available for inspection.' : 'Awaiting verified inception.');
+  $('#pause-detail').textContent = state.account_drift || state.accounting?.status === 'blocked' ? 'Account checks need attention. No new trades.' : state.operation?.authorization === 'expired' ? 'Today’s trading permission has ended. Holdings stay invested; a new review is needed before buying again.' : 'No new trades until the required checks pass.';
   $('#operations-status').textContent = !statusKnown ? 'Unverified' : state.operation?.authorization==='expired'?'Session authorization expired':state.operation?.authorization==='recorded'?'Authorization recorded · runtime checks required':paused ? 'Paused' : 'Active · paper only';
   renderMarket(state);
   renderHoldings(portfolio, started);
@@ -120,7 +120,7 @@ function renderMarket(state) {
   const quotes = payload.quotes || payload.trades || payload.market?.quotes || {};
   const clock = payload.clock || {};
   const retrieved = payload.retrieved_at || snapshot?.created_at || payload.retrieval_time;
-  const names = { AAPL: 'Apple Inc.', MSFT: 'Microsoft', SPY: 'S&P 500 ETF' };
+  const names = { AAPL: 'Apple Inc.', MSFT: 'Microsoft', SPY: 'Fund holding large US companies' };
   const universe = approvedUniverse(state.mandate);
   $('#market-quotes').innerHTML = universe ? universe.map((symbol) => {
     const raw = Array.isArray(quotes) ? quotes.find((entry) => entry?.symbol === symbol) : quotes[symbol];
@@ -148,7 +148,7 @@ function renderHoldings(portfolio, started) {
     const marketValue = presentOrLegacy(holding.market_value, holding.value);
     const gain = presentOrLegacy(holding.unrealized_pl, holding.unrealized_gain);
     const weight = presentOrLegacy(holding.weight, knownRatio(marketValue, portfolio.value));
-    return `<tr><td><strong>${escapeHTML(holding.symbol)}</strong></td><td>${number(presentOrLegacy(holding.qty, holding.quantity), 8)}</td><td>${money(holding.cost_basis)}</td><td>${money(marketValue)}</td><td class="${Number(gain) < 0 ? 'negative' : Number(gain) > 0 ? 'positive' : ''}">${money(gain)}</td><td>${percent(weight)}</td></tr>`;
+    return `<tr><td><strong>${escapeHTML(holding.symbol)}</strong>${holding.symbol === 'SPY' ? '<small class="holding-description">Fund holding large US companies</small>' : ''}</td><td>${number(presentOrLegacy(holding.qty, holding.quantity), 8)}</td><td>${money(holding.cost_basis)}</td><td>${money(marketValue)}</td><td class="${Number(gain) < 0 ? 'negative' : Number(gain) > 0 ? 'positive' : ''}">${money(gain)}</td><td>${percent(weight)}</td></tr>`;
   }).join('');
   $('#holdings-empty').hidden = holdings.length > 0;
   $('#holdings-empty strong').textContent = (portfolio.holdings_status === 'unknown' || !Array.isArray(portfolio.holdings)) ? 'Holdings unavailable' : 'No holdings';
@@ -210,26 +210,134 @@ function recordCard(event, journal = false) {
     return `<li>${url ? `<a href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer">${escapeHTML(label)} <svg class="ui-icon" viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 10h12m-5-5 5 5-5 5"/></svg></a>` : escapeHTML(label)}<time>Observed: ${escapeHTML(formatTime(source.observed_at || source.retrieved_at))}</time>${source.published_at ? `<time>Published: ${escapeHTML(formatTime(source.published_at))}</time>` : ''}${source.excerpt ? `<p>${escapeHTML(source.excerpt)}</p>` : ''}</li>`;
   }).join('')}</ul></details>` : '';
   const kind = ['research', 'challenge', 'decision'].includes(event.kind) ? event.kind : '';
-  return `<article class="record-card"><div class="record-topline"><span class="role-tag ${kind}">${escapeHTML(roleName(event))}${event.kind === 'decision' ? ' · Proposal' : ''}</span><time datetime="${escapeHTML(event.created_at || event.recorded_at)}">Recorded ${escapeHTML(formatTime(event.created_at || event.recorded_at))}</time></div><h2>${escapeHTML(payload.title || (payload.action === 'hold' ? 'A decision to hold.' : payload.summary?.slice(0, 85) || 'Recorded contribution'))}</h2><div class="record-summary">${escapeHTML(payload.summary || payload.thesis || payload.message || 'No summary supplied.')}</div><details class="record-detail"><summary>Read thesis, dissent &amp; sources</summary>${facts.some(([, value]) => value !== undefined && value !== null && value !== '') ? `<div class="record-facts">${facts.filter(([, value]) => value !== undefined && value !== null && value !== '').map(([label, value]) => `<dl><dt>${escapeHTML(label)}</dt><dd>${readableValue(value)}</dd></dl>`).join('')}</div>` : ''}${evidenceHTML}<p class="record-id">${payload.author ? `Authored by ${escapeHTML(payload.author)} · ` : ''}Immutable record ${escapeHTML(event.id || 'ID unavailable')}</p></details></article>`;
+  return `<article class="record-card"><div class="record-topline"><span class="role-tag ${kind}">${escapeHTML(roleName(event))}${event.kind === 'decision' ? ' · Proposal' : ''}</span></div><h2>${escapeHTML(payload.title || (payload.action === 'hold' ? 'A decision to hold.' : payload.summary?.slice(0, 85) || 'Recorded contribution'))}</h2><details class="record-detail"><summary>Original wording &amp; details</summary><time>Recorded ${escapeHTML(formatTime(event.created_at || event.recorded_at))}</time><div class="record-summary">${escapeHTML(payload.summary || payload.thesis || payload.message || 'No summary supplied.')}</div>${facts.some(([, value]) => value !== undefined && value !== null && value !== '') ? `<div class="record-facts">${facts.filter(([, value]) => value !== undefined && value !== null && value !== '').map(([label, value]) => `<dl><dt>${escapeHTML(label)}</dt><dd>${readableValue(value)}</dd></dl>`).join('')}</div>` : ''}${evidenceHTML}<p class="record-id">${payload.author ? `Authored by ${escapeHTML(payload.author)} · ` : ''}Immutable record ${escapeHTML(event.id || 'ID unavailable')}</p></details></article>`;
 }
 
+// Presentation copy is matched to the immutable record digest, never used by execution.
+const decisionCopy = {
+  "blue-decision-hold-001": {
+    "digest": "3b5e4c208c0655dd2abed5b3f089b88cc944ed86eebe88cbee1c9041c515e6bb",
+    "category": "setup",
+    "title": "Wait before investing",
+    "reason": "The account checks worked, but trade accounting and the comparison portfolio still needed testing."
+  },
+  "blue-cycle-hold-20261027": {
+    "digest": "69f308592612991b87aab86707fb784815fa894596b52e671110c30b25f0d738",
+    "category": "setup",
+    "title": "Keep the starting money in cash",
+    "reason": "The connection worked. More trading and accounting checks were still needed before starting."
+  },
+  "blue-adoption-hold-2026-10-27": {
+    "digest": "19dd1ef046f2e1fa4b98934c90b665c188dc8a9fb81ea7b2ef637e969b98cecf",
+    "category": "setup",
+    "title": "Keep trading paused",
+    "reason": "Blue could read and save reviews, but scheduled-task controls were still unresolved."
+  },
+  "blue-initial-universe-hold-2026-10-27": {
+    "digest": "b864e55d2cf6e16dd8e285d5f10ea125130c0ad8b1cc78a9f3ced83a5223cc45",
+    "category": "setup",
+    "title": "Wait for a stronger buying case",
+    "reason": "SPY was a candidate, but launch checks and the reason to buy were not complete."
+  },
+  "blue-broader-plan-2026-10-27": {
+    "digest": "94c09544fc6871db61ce2d6fdc7feffa3d232bace63772b8a22be88e9a936288",
+    "category": "setup",
+    "title": "Research a more varied portfolio",
+    "reason": "Consider funds covering different markets after the first small test purchase. No purchase was approved here."
+  },
+  "blue-opening-manager-plan-2026-10-27": {
+    "digest": "287dc38b6d59dcf2d590365e24ec73f201d8b1de751fcdc09dff2b58ebc002d5",
+    "category": "setup",
+    "title": "Plan a small start with SPY",
+    "reason": "First test one share, then consider a total SPY investment of up to $4,000 after reviewing the result."
+  },
+  "blue-opening-limit-policy-2026-10-27": {
+    "digest": "1366c967ee77352dcc2e8d8177cdf131d7d6eca127fdd4b8d705ae09775f47aa",
+    "category": "setup",
+    "title": "Set a maximum buying price",
+    "reason": "Prepare a price limit for the planned SPY purchases. This record did not place an order."
+  },
+  "blue-spy-pilot-decision-2026-10-27": {
+    "digest": "cfc2c892d1a0ff628ff2221af35da2a5bb75f418818790db3743e0ef677c559c",
+    "category": "investment",
+    "title": "Start with one SPY share",
+    "reason": "Start small to check the paper-trading process before investing more."
+  },
+  "blue-spy-core-buy-2026-10-27": {
+    "digest": "c976766f9b2078271ffe92e8015cb457c9aa3ab71d1f3117c5d2a84fbb9c2c8f",
+    "category": "investment",
+    "title": "Add four SPY shares",
+    "reason": "Build the first broad US-market position while keeping total SPY spending below $4,000."
+  },
+  "blue-ijr-admission-deferred-2026-10-27": {
+    "digest": "1d6f2cc1212dfa4afc52426b3b38ae2596cfb8095187f965adb10c77f024341b",
+    "category": "investment",
+    "title": "Wait on a small-company fund",
+    "reason": "IJR research was complete, but the approval process could not finish before its price checks expired. No IJR was bought."
+  },
+  "blue-launch-decision-2026-10-27-1530Z": {
+    "digest": "ab14eb1f0baae780c12665355acd0b7ab42439a2d0169ebe60b82163e9a4d854",
+    "category": "investment",
+    "title": "Keep SPY and hold the cash",
+    "reason": "The new information did not justify buying Apple or Microsoft. The IJR approval process still needed a repair."
+  },
+  "blue-launch-decision-2026-10-27-1730Z": {
+    "digest": "b067f8577e817225a7260aa89dc04638e7575da07f6a9673a46cb2cb2b58dc42",
+    "category": "investment",
+    "title": "Keep the portfolio unchanged",
+    "reason": "The account checks found no problem. Blue chose not to make another purchase."
+  },
+  "blue-launch-decision-2026-10-27-1930Z": {
+    "digest": "5a83008a77f9e223b8b5079074cc8fb42935b5fc03a7c522f80616685003ce83",
+    "category": "investment",
+    "title": "Keep the five SPY shares",
+    "reason": "No further purchase was proposed. Next, record the portfolio value near the market close."
+  },
+  "blue-review-hold-2026-10-27-close": {
+    "digest": "1791147c1f660e251bfac7fadf9c055ce69024056a26cf5ee83f446920ec8dd0",
+    "category": "investment",
+    "title": "Keep SPY; make no new purchase",
+    "reason": "Keep the five SPY shares and the remaining cash. Prices were too old for a new trade, and upcoming company results and a Federal Reserve decision were still pending."
+  }
+};
+function decisionPresentation(event, events) {
+  const p=event.payload || {}, saved=decisionCopy[event.id];
+  const copy=saved && saved.digest===event.digest ? saved : null;
+  const category=copy?.category || (p.admission_approval===true ? 'setup' : 'investment');
+  const intents=events.filter(e=>e.kind==='order_intent' && e.payload.decision_id===event.id);
+  const fills=events.filter(e=>e.kind==='ledger_fill' && intents.some(i=>i.id===e.payload.intent_id && i.payload.order?.symbol===e.payload.fill?.symbol && i.payload.order?.side===e.payload.fill?.side) && e.payload.fill?.symbol===p.symbol && e.payload.fill?.side===p.action && numeric(e.payload.fill?.quantity) && Number(e.payload.fill.quantity)>0 && numeric(e.payload.fill.price_text) && Number(e.payload.fill.price_text)>0);
+  const conflict=events.some(e=>e.kind==='order_closure_conflict' && intents.some(i=>i.id===e.payload.intent_id));
+  const completed=intents.length===1 && fills.length>0 && events.some(e=>e.kind==='order_closed' && e.payload.intent_id===intents[0].id && e.payload.status==='filled' && numeric(e.payload.accounted_quantity) && numeric(intents[0].payload.order?.qty) && Number(e.payload.accounted_quantity)===Number(intents[0].payload.order.qty) && fills.reduce((n,f)=>n+Number(f.payload.fill.quantity),0)===Number(e.payload.accounted_quantity));
+  const partial=intents.length===1 && numeric(intents[0].payload.order?.qty) && fills.length>0 && fills.reduce((n,f)=>n+Number(f.payload.fill.quantity),0)<Number(intents[0].payload.order.qty);
+  const status=conflict?'Trade record needs checking':completed?(p.action==='sell'?'Filled paper sale':'Filled paper purchase'):fills.length?(partial?'Partial fill recorded':'Fill recorded · completion unconfirmed'):intents.length?'Order recorded · outcome not confirmed':p.action==='hold'?'No new purchase':p.action==='buy'?'Proposed purchase · not a confirmed fill':p.action==='sell'?'Proposed sale · not a confirmed fill':'Recorded review';
+  return {category,status,title:copy?.title || (p.action==='buy'?`Consider buying ${p.symbol || 'an investment'}`:p.action==='sell'?`Consider selling ${p.symbol || 'an investment'}`:p.action==='hold'?'Leave the portfolio unchanged':'Review the plan'),reason:copy?.reason || (typeof p.plain_language_summary==='string' && p.plain_language_summary.trim() ? p.plain_language_summary : 'The original explanation is available below.'),fills};
+}
+function investmentCard(event,events) {
+  const d=decisionPresentation(event,events);
+  const receipts=d.fills.map(e=>{const f=e.payload.fill;return `${number(f.quantity,8)} ${escapeHTML(f.symbol)} share${Number(f.quantity)===1?'':'s'} at ${money(f.price_text)} each`;}).join(' · ');
+  return `<article class="record-card investment-card"><div class="role-tag">${escapeHTML(d.status)}</div><h2>${escapeHTML(d.title)}</h2><p class="record-summary">${escapeHTML(d.reason)}</p>${receipts?`<p class="fill-summary">Recorded fills: ${receipts}</p>`:''}<details class="record-detail"><summary>Why, sources &amp; original record</summary>${recordCard(event)}${d.fills.map(e=>`<details><summary>Fill receipt</summary>${readableValue(e)}</details>`).join('')}</details></article>`;
+}
 function renderRecords(state) {
   const events = getEvents(state);
   const contributions = events.filter((event) => ['research', 'challenge', 'decision', 'revision'].includes(event.kind));
   const decisions = contributions.filter((event) => event.kind === 'decision');
-  $('#decision-count').textContent = decisions.length;
-  $('#contribution-total').textContent = `${contributions.length} recorded contribution${contributions.length === 1 ? '' : 's'}${state.history_truncated ? ' · recent window only; export for full history' : ''}`;
+  const investments=decisions.filter(e=>decisionPresentation(e,events).category==='investment');
+  $('#decision-count').textContent = investments.length;
+  $('#contribution-total').textContent = state.history_truncated ? 'Recent history · full records in System details' : 'Original records kept in full';
   const filter = $('#decision-filter').value;
   const filtered = contributions.filter((event) => filter === 'all' || event.kind === filter);
-  $('#decision-list').innerHTML = filtered.length ? filtered.map((event) => recordCard(event)).join('') : emptyState('No contributions', 'No records in this view.');
+  const latestHold=investments.find(e=>e.payload.action==='hold');
+  const highlights=investments.filter(e=>e.payload.action!=='hold'||e===latestHold);
+  const older=contributions.filter(e=>!highlights.includes(e));
+  $('#decision-list').innerHTML = filter==='investment' ? (highlights.length?highlights.map(e=>investmentCard(e,events)).join(''):emptyState('No investment decision yet','Planning and account checks are kept below.')) + (older.length?`<details class="desk-detail"><summary>Earlier reviews, research &amp; setup (${older.length})</summary>${older.map(e=>recordCard(e)).join('')}</details>`:'') : filtered.length ? filtered.map((event) => recordCard(event)).join('') : emptyState('No contributions', 'No records in this view.');
   const journal = contributions.filter(event => ['decision', 'revision'].includes(event.kind));
   $('#journal-list').innerHTML = journal.length ? journal.map((event) => recordCard(event, true)).join('') : emptyState('No decisions yet', 'Awaiting manager review.');
   if (!$('#replay-date').value || $('#replay-date').value === 'all') {
     $('#replay-list').innerHTML = events.length ? events.map(event => recordCard(event)).join('') : emptyState('No history yet', '');
     $('#replay-status').textContent = state.history_truncated ? 'Recent records · Download the full audit log in Operations.' : 'Present record';
   }
-  const latest = decisions[0];
-  $('#latest-decision').innerHTML = latest ? `<div class="latest-content"><div class="eyebrow">Manager proposal · ${escapeHTML(latest.payload.action || 'Decision')}</div><h3>${escapeHTML(latest.payload.title || 'A recorded decision')}</h3><p>${escapeHTML(latest.payload.summary || latest.payload.thesis || '')}</p><p class="latest-meta">Recorded ${escapeHTML(formatTime(latest.created_at, true))}</p></div>` : `<div class="latest-content"><h3>No manager action yet</h3></div>`;
+  const latest = investments[0];
+  $('#latest-decision').innerHTML = latest ? investmentCard(latest,events) : `<div class="latest-content"><h3>No investment decision yet</h3><p>Account setup and research are available in Decisions.</p></div>`;
 }
 
 function healthItem(label, value, detail = '', kind = '') {
@@ -280,13 +388,14 @@ function renderHealth(state) {
   if (health.last_error) rows.push(healthItem('Last update error', 'Needs attention', asText(health.last_error), 'warning'));
   else if (health.last_failure) rows.push(healthItem('Last failed update', formatTime(health.last_failure), 'See the immutable timeline for the recorded failure.', 'warning'));
   if (state.account_drift) rows.push(healthItem('External account activity', 'Reconciliation required', 'Broker holdings or cash differ from the original allocation. Official experiment accounting has not silently adopted those changes.', 'warning'));
+  const verificationRows = [];
   if (Array.isArray(health.verification)) health.verification.forEach((item) => {
     const outcome = item.outcome ?? item.status ?? 'Not recorded';
     const detail = [`Check: ${item.check || 'Not recorded'}`, `Revision: ${item.revision || item.release_revision || item.commit_sha || 'Not recorded'}`, item.summary].filter(Boolean).join(' · ');
-    rows.push(healthItem(item.title || 'Recorded verification', asText(outcome), detail, outcome === 'passed' ? 'ok' : outcome === 'failed' ? 'warning' : ''));
+    verificationRows.push(healthItem(item.title || 'Recorded verification', asText(outcome), detail, outcome === 'passed' ? 'ok' : outcome === 'failed' ? 'warning' : ''));
   });
   if (Array.isArray(health.blockers)) [...new Set(health.blockers)].forEach((item, index) => rows.push(healthItem(`Readiness blocker ${index + 1}`, 'Unresolved', asText(item), 'warning')));
-  $('#health-list').innerHTML = rows.join('');
+  $('#health-list').innerHTML = rows.join('') + (verificationRows.length ? `<details class="desk-detail"><summary>Technical checks &amp; audit records (${verificationRows.length})</summary>${verificationRows.join('')}</details>` : '');
 }
 
 function renderMandate(mandate) {
