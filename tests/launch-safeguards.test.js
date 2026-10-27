@@ -36,8 +36,8 @@ async function privateEngine(){
  source+='\nexport { executeVerifiedDecision as testEngine };';
  return (await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'))).testEngine;
 }
-function tradingBroker({postFailure=false,postHook,observeHook,assetPatch={}}={}){
- const fixture=brokerFixture();let posts=0;let gets=0;let order;
+function tradingBroker({postFailure=false,postHook,observeHook,assetPatch={},clock}={}){
+ const fixture=brokerFixture({clock});let posts=0;let gets=0;let order;
  const fetcher=async(url,options)=>{
   const path=new URL(url).pathname;
   if(options.method==='POST'){
@@ -233,12 +233,12 @@ test('saved expired decision retries return original receipt but execution still
 });
 
 test('session closing during final asynchronous lease renewal prevents broker POST',async t=>{
- const {db}=temporaryDatabase(t);await seed(db);const engine=await privateEngine();const f=tradingBroker();
+ const {db}=temporaryDatabase(t);await seed(db);const engine=await privateEngine();const f=tradingBroker({clock:{next_close:new Date(Date.now()+10000).toISOString()}});
  const prepare=db.prepare.bind(db);let arm=false;let advanced=false;
  db.prepare=(sql)=>{const statement=prepare(sql);
   if(sql==='SELECT MAX(seq) AS seq FROM events'){const first=statement.first.bind(statement);statement.first=async()=>{const head=await first();arm=true;return head;};}
   if(sql.startsWith('UPDATE locks SET expires_at=')){
-   const bind=statement.bind.bind(statement);statement.bind=(...args)=>{const bound=bind(...args);const run=bound.run.bind(bound);bound.run=async()=>{const result=await run();if(arm&&!advanced){advanced=true;t.mock.timers.enable({apis:['Date'],now:Date.now()+3600001});}return result;};return bound;};
+   const bind=statement.bind.bind(statement);statement.bind=(...args)=>{const bound=bind(...args);const run=bound.run.bind(bound);bound.run=async()=>{const result=await run();if(arm&&!advanced){advanced=true;t.mock.timers.enable({apis:['Date'],now:Date.now()+11000});}return result;};return bound;};
   }return statement;
  };
  await assert.rejects(engine(db,executionEnv,'decision-fixture-001',actor,f.fetcher),/expired before submission/);

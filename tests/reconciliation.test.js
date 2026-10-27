@@ -102,7 +102,7 @@ test('a reported fill outside the original limit is preserved but not accounted'
   assert.equal(result.payload.new_fills, 0); assert.equal(result.payload.orders_closed, 0); assert.ok(result.payload.problems.some(p => p.code === 'fill_unresolved' && /limit/.test(p.message)));
 });
 test('prospective opening helper preserves same-time benchmark and refuses backdating/precision loss', () => {
-  const start = new Date().toISOString(); const snapshot = { id: 'snapshot-start', kind: 'snapshot', created_at: start, payload: { feed: 'iex', execution_ready: true, clock: { timestamp: start, is_open: true }, account: { cash: 100000, equity: 100000 }, positions: [], open_orders: [], quotes: { SPY: { price: 500, feed: 'iex', market_data_at: start } } } };
+  const start = new Date().toISOString(); const snapshot = { id: 'snapshot-start', kind: 'snapshot', created_at: start, payload: { feed: 'iex', execution_ready: true, clock: { timestamp: start, is_open: true, next_close: new Date(Date.parse(start) + 3600000).toISOString(), next_open: new Date(Date.parse(start) + 86400000).toISOString() }, account: { cash: 100000, equity: 100000 }, positions: [], open_orders: [], quotes: { SPY: { price: 500, feed: 'iex', market_data_at: start } } } };
   const payload = createOpeningPayload(snapshot, start); assert.equal(payload.started_at, payload.benchmark.started_at); assert.equal(payload.benchmark.holdings.SPY.quantity, 200); assert.equal(payload.benchmark.cash_cents, 0);
   assert.throws(() => createOpeningPayload(snapshot, '2020-01-01T00:00:00Z'), /backdating/);
   assert.throws(() => createOpeningPayload({ ...snapshot, payload: { ...snapshot.payload, quotes: { SPY: { price: 500.005, feed: 'iex', market_data_at: start } } } }, start), /fractional-cent/);
@@ -155,4 +155,17 @@ test('replay rejects missing, delayed, or financially inconsistent opening bench
     const result = await readLedger(db); assert.equal(result.status, 'blocked'); assert.equal(result.portfolio, null);
     assert.equal(result.problems[0].code, 'invalid_opening');
   }
+});
+
+test('prospective opening rejects a session that closed after its fresh clock observation', () => {
+  const start = new Date().toISOString();
+  const observed = new Date(Date.parse(start) - 2000).toISOString();
+  const snapshot = { id: 'opening-close-fixture', kind: 'snapshot', created_at: observed, payload: { feed: 'iex', execution_ready: true, clock: { timestamp: observed, is_open: true, next_close: new Date(Date.parse(start) - 1000).toISOString(), next_open: new Date(Date.parse(start) + 86400000).toISOString() }, account: { cash: 100000, equity: 100000 }, positions: [], open_orders: [], quotes: { SPY: { price: 500, feed: 'iex', market_data_at: observed } } } };
+  assert.throws(() => createOpeningPayload(snapshot, start), /recorded close/);
+  snapshot.payload.clock.next_close = start;
+  assert.throws(() => createOpeningPayload(snapshot, start), /recorded close/);
+  snapshot.payload.clock.next_close = new Date(Date.parse(start) + 1000).toISOString();
+  assert.equal(createOpeningPayload(snapshot, start).started_at, start);
+  delete snapshot.payload.clock.next_open;
+  assert.throws(() => createOpeningPayload(snapshot, start), /boundaries/);
 });
