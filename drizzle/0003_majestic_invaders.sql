@@ -1,0 +1,2 @@
+CREATE UNIQUE INDEX `events_single_validation_protocol` ON `events` (`kind`) WHERE "events"."kind" = 'validation_protocol';--> statement-breakpoint
+CREATE UNIQUE INDEX `events_single_validation_intent` ON `events` (`kind`) WHERE "events"."kind" = 'order_intent' AND json_extract("events"."payload", '$.validation_protocol_id') IS NOT NULL;
