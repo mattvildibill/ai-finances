@@ -42,7 +42,7 @@ function setView(view, updateHash = true) {
     button.classList.toggle('active', selected);
     if (selected) button.setAttribute('aria-current', 'page'); else button.removeAttribute('aria-current');
   });
-  if (updateHash) history.replaceState(null, '', `#${view}`);
+  if (updateHash) { history.replaceState(null, '', `#${view}`); const heading = $(`#view-${view} h1`); heading.setAttribute('tabindex', '-1'); heading.focus({ preventScroll: true }); }
 }
 
 function emptyState(title, description, mark = '○') {
@@ -73,20 +73,25 @@ function renderState(state) {
   const value = presentOrLegacy(portfolio.value, portfolio.equity);
   const cash = portfolio.cash;
   $('#portfolio-value').textContent = money(value);
+  $('#state-time').textContent = `State · ${formatTime(state.as_of)}${portfolio.valuation_status === 'unavailable' ? ' · Valuation unavailable' : ''}`;
+  $('#invested-value').textContent = knownRatio(cash, value) === null ? '—' : money(Number(value) - Number(cash));
   $('#cash-value').textContent = money(cash);
   $('#capital-state').textContent = started ? (paused ? 'PAUSED' : 'PAPER PORTFOLIO') : 'PRE-LAUNCH';
-  $('#capital-title').firstChild.textContent = started ? 'PORTFOLIO VALUE ' : 'EXPERIMENT CAPITAL ';
-  $('#capital-context').textContent = started ? `Broker ledger · Since ${formatTime(experiment.started_at, true)} · Modeled comparison NAV ${money(portfolio.economic_value)}` : 'Allocated starting cash · Official experiment not started';
-  $('#return-value').textContent = started ? percent(portfolio.total_return) : 'Not started';
+  $('#capital-title').firstChild.textContent = started ? 'TOTAL VALUE ' : 'OPENING CAPITAL ';
+  $('#capital-context').textContent = started ? `Official ledger · Since ${formatTime(experiment.started_at, true)} · Modeled comparison NAV ${money(portfolio.economic_value)}` : 'Allocated starting cash · Official experiment not started';
+  const gain = presentOrLegacy(portfolio.gain, portfolio.total_gain);
+  $('#return-value').textContent = started ? money(gain) : 'Not started';
+  $('#return-value').classList.toggle('negative', started && gain !== null && Number(gain) < 0);
+  $('#return-value').classList.toggle('positive', started && gain !== null && Number(gain) > 0);
   $('#return-value').style.fontSize = started ? '' : '27px';
-  $('#return-detail').textContent = started ? `${money(presentOrLegacy(portfolio.gain, portfolio.total_gain))} since inception · ${portfolio.performance_basis || 'Performance basis unavailable'}` : 'Performance starts at inception.';
+  $('#return-detail').textContent = started ? `${percent(portfolio.total_return)} since inception · ${portfolio.performance_basis || 'Performance basis unavailable'}` : 'Awaiting inception';
   $('#relative-return').textContent = started && state.benchmark?.excess_return !== undefined ? percent(state.benchmark.excess_return) : state.benchmark?.status === 'not_started' || !started ? 'Not started' : 'Not available';
   const cashRatio = knownRatio(cash, value);
   $('#cash-percent').textContent = cashRatio === null ? 'Waiting for accounting state' : `${percent(cashRatio)} of portfolio`;
   $('#cash-track').hidden = cashRatio === null;
   $('#cash-track').style.width = `${cashRatio === null ? 0 : Math.min(100, Math.max(0, cashRatio * 100))}%`;
   $('#pause-banner').hidden = !paused;
-  $('#pause-detail').textContent = experiment.pause_reason || (started ? 'New trading is paused. Existing records remain available for inspection.' : 'Capital is reserved. Trading begins only after the operating workflow is verified.');
+  $('#pause-detail').textContent = experiment.pause_reason || (started ? 'New trading is paused. Existing records remain available for inspection.' : 'Awaiting verified inception.');
   $('#operations-status').textContent = paused ? 'Paused' : 'Active · paper only';
   renderMarket(state);
   renderHoldings(portfolio, started);
@@ -111,7 +116,9 @@ function renderMarket(state) {
     const quote = raw?.latestTrade || raw?.trade || raw || {};
     const price = presentOrLegacy(quote.price, quote.p);
     const timestamp = quote.market_data_at || quote.timestamp || quote.t;
-    return `<div class="quote-row"><div class="quote-symbol"><span class="ticker-icon ${symbol === 'SPY' ? 'spy' : ''}" aria-hidden="true">${symbol === 'SPY' ? 'S' : symbol === 'AAPL' ? 'A' : 'M'}</span><div class="ticker-name"><strong>${symbol}</strong><span>${names[symbol]}</span></div></div><div class="quote-price"><strong>${money(price, 3).replace(/0$/, '')}</strong><time ${timestamp ? `datetime="${escapeHTML(timestamp)}"` : ''}>${timestamp ? escapeHTML(formatTime(timestamp, true)) : 'No verified price'}</time></div></div>`;
+    const age = (new Date(state.as_of).getTime() - new Date(timestamp).getTime()) / 1000;
+    const freshness = !timestamp || !Number.isFinite(age) ? 'Unverified time' : age < -5 ? 'Future timestamp' : age > 120 ? 'Stale' : 'At state cutoff';
+    return `<div class="quote-row"><div class="quote-symbol"><span class="ticker-icon ${symbol === 'SPY' ? 'spy' : ''}" aria-hidden="true">${symbol === 'SPY' ? 'S' : symbol === 'AAPL' ? 'A' : 'M'}</span><div class="ticker-name"><strong>${symbol}</strong><span>${names[symbol]}</span></div></div><div class="quote-price"><strong>${money(price, 3).replace(/0$/, '')}</strong><time ${timestamp ? `datetime="${escapeHTML(timestamp)}"` : ''}>${timestamp ? escapeHTML(formatTime(timestamp)) : 'No verified price'}</time><span class="quote-freshness">${freshness}</span></div></div>`;
   }).join('');
   $('#retrieval-time').textContent = retrieved ? formatTime(retrieved, true) : 'No successful retrieval';
   const observedAt = clock.timestamp;
@@ -133,13 +140,14 @@ function renderHoldings(portfolio, started) {
     return `<tr><td><strong>${escapeHTML(holding.symbol)}</strong></td><td>${number(presentOrLegacy(holding.qty, holding.quantity), 8)}</td><td>${money(holding.cost_basis)}</td><td>${money(marketValue)}</td><td class="${Number(gain) < 0 ? 'negative' : Number(gain) > 0 ? 'positive' : ''}">${money(gain)}</td><td>${percent(weight)}</td></tr>`;
   }).join('');
   $('#holdings-empty').hidden = holdings.length > 0;
-  $('#holdings-empty p').textContent = portfolio.holdings_status === 'unknown' ? 'Accounting is blocked; holdings are unavailable pending reconciliation.' : started ? 'The portfolio currently holds cash. Holding cash is a valid investment decision.' : 'No holdings in the official experiment. Nothing is being invested while it is paused.';
+  $('#holdings-empty strong').textContent = portfolio.holdings_status === 'unknown' ? 'Holdings unavailable' : 'No holdings';
+  $('#holdings-empty p').textContent = portfolio.holdings_status === 'unknown' ? 'Accounting is blocked; holdings are unavailable pending reconciliation.' : started ? 'All cash.' : 'Awaiting inception.';
 }
 
 function renderChart(state, started) {
   // /api/state provides the latest valuation, not a chronological NAV series.
-  $('#performance-chart').innerHTML = `<div class="chart-empty-grid" aria-hidden="true"></div><div class="chart-empty"><span aria-hidden="true">${started ? '—' : 'Ⅱ'}</span><strong>${started ? 'Performance history unavailable' : 'Not started'}</strong><p>${started ? 'The current state does not include a verified valuation series to plot.' : 'The official experiment has not begun. No performance has accrued.'}</p></div>`;
-  $('#chart-note').textContent = 'Historical portfolio and SPY chart data are not supplied by the current service. No series is inferred from quotes or invented.';
+  $('#performance-chart').innerHTML = `<div class="chart-empty"><span aria-hidden="true"></span><strong>${started ? 'Performance history unavailable' : 'Not started'}</strong><p>${started ? 'No verified NAV series supplied.' : 'Awaiting inception.'}</p></div>`;
+  $('#chart-note').textContent = 'No portfolio or SPY series available.';
 }
 
 function renderRisk(state, started) {
@@ -157,22 +165,29 @@ function roleName(event) {
   return ({ researcher: 'Researcher', challenger: 'Independent challenger', portfolio_manager: 'Portfolio manager' }[event.payload.role]) || ({ research: 'Researcher', challenge: 'Independent challenger', decision: 'Portfolio manager', revision: 'Revision', system: 'System record', snapshot: 'Market observation' }[event.kind] || event.payload.role || event.kind || 'Record');
 }
 
+function readableValue(value) {
+  if (value === null) return 'null (recorded)';
+  if (Array.isArray(value)) return value.every(item => item === null || typeof item !== 'object') ? escapeHTML(value.map(item => item === null ? 'null (recorded)' : asText(item)).join('\n')) : `<ul class="structured-list">${value.map(item => `<li>${readableValue(item)}</li>`).join('')}</ul>`;
+  if (value && typeof value === 'object') return `<dl class="structured-fields">${Object.entries(value).map(([key, item]) => `<dt>${escapeHTML(key.replace(/_/g, ' '))}</dt><dd>${readableValue(item)}</dd>`).join('')}</dl>`;
+  return escapeHTML(asText(value));
+}
+
 function recordCard(event, journal = false) {
   const payload = event.payload || {};
   if (event.kind === 'snapshot') {
-    return `<article class="record-card"><div class="record-topline"><span class="role-tag">Market observation · Alpaca IEX</span><time>Recorded ${escapeHTML(formatTime(event.created_at))}</time></div><h2>The market, as observed.</h2><div class="record-summary">Retrieved ${escapeHTML(formatTime(payload.retrieved_at))}. ${payload.clock?.is_open === true ? 'The regular trading session was open.' : payload.clock?.is_open === false ? 'The regular trading session was closed.' : 'Session status was unverified.'}</div><div class="record-facts">${Object.entries(payload.quotes || {}).map(([symbol, quote]) => `<dl><dt>${escapeHTML(symbol)} · IEX last trade</dt><dd>${money(quote.price, 3)}<br>Market time: ${escapeHTML(formatTime(quote.market_data_at))}</dd></dl>`).join('')}</div><p class="record-id">Immutable snapshot ${escapeHTML(event.id)}</p></article>`;
+    return `<article class="record-card"><div class="record-topline"><span class="role-tag">Market observation · Alpaca IEX</span><time>Recorded ${escapeHTML(formatTime(event.created_at))}</time></div><h2>The market, as observed.</h2><div class="record-summary">Retrieved ${escapeHTML(formatTime(payload.retrieved_at))}. ${payload.clock?.is_open === true ? 'The regular trading session was open.' : payload.clock?.is_open === false ? 'The regular trading session was closed.' : 'Session status was unverified.'}</div><div class="record-facts">${Object.entries(payload.quotes || {}).map(([symbol, quote]) => `<dl><dt>${escapeHTML(symbol)} · IEX last trade</dt><dd>${money(quote.price, 3)}<br>Market time: ${escapeHTML(formatTime(quote.market_data_at))}</dd></dl>`).join('')}</div><p class="record-id">Immutable snapshot ${escapeHTML(event.id)}</p><details class="record-detail"><summary>Full observation receipt</summary>${readableValue(payload)}</details></article>`;
   }
   // Every authored payload field remains inspectable in every record view.
-  const labels = { thesis: 'Original thesis', horizon: 'Expected horizon', change_mind: 'What would change our mind', invalidation_conditions: 'Invalidation conditions', size: 'Position size · USD notional', position_size: 'Position size', counterargument: 'Independent counterargument', challenge_response: 'Response to the challenge', snapshot_ids: 'Source snapshots', required_before_purchase_thesis: 'Required before purchase thesis' };
+  const labels = { thesis: 'Original thesis', horizon: 'Expected horizon', change_mind: 'What would change our mind', invalidation_conditions: 'Invalidation conditions', size: 'Proposed size · USD notional', position_size: 'Position size', counterargument: 'Independent counterargument', challenge_response: 'Response to the challenge', snapshot_ids: 'Source snapshots', required_before_purchase_thesis: 'Required before purchase thesis' };
   const facts = Object.entries(payload).filter(([key]) => !['title', 'summary', 'author', 'role'].includes(key)).map(([key, value]) => [labels[key] || key.replace(/_/g, ' ').replace(/^./, char => char.toUpperCase()), value === null ? 'null (recorded)' : key === 'size' ? money(value) : value]);
   const evidence = Array.isArray(payload.evidence) ? payload.evidence : [];
   const evidenceHTML = evidence.length ? `<details class="evidence"><summary>${evidence.length} evidence source${evidence.length === 1 ? '' : 's'} · inspect provenance</summary><ul>${evidence.map((source) => {
     const url = safeURL(source.url);
     const label = source.title || source.url || 'Recorded source';
-    return `<li>${url ? `<a href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer">${escapeHTML(label)} ↗</a>` : escapeHTML(label)}<time>Observed: ${escapeHTML(formatTime(source.observed_at || source.retrieved_at))}</time>${source.published_at ? `<time>Published: ${escapeHTML(formatTime(source.published_at))}</time>` : ''}${source.excerpt ? `<p>${escapeHTML(source.excerpt)}</p>` : ''}</li>`;
+    return `<li>${url ? `<a href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer">${escapeHTML(label)} <svg class="ui-icon" viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 10h12m-5-5 5 5-5 5"/></svg></a>` : escapeHTML(label)}<time>Observed: ${escapeHTML(formatTime(source.observed_at || source.retrieved_at))}</time>${source.published_at ? `<time>Published: ${escapeHTML(formatTime(source.published_at))}</time>` : ''}${source.excerpt ? `<p>${escapeHTML(source.excerpt)}</p>` : ''}</li>`;
   }).join('')}</ul></details>` : '';
   const kind = ['research', 'challenge', 'decision'].includes(event.kind) ? event.kind : '';
-  return `<article class="record-card"><div class="record-topline"><span class="role-tag ${kind}">${escapeHTML(roleName(event))}</span><time datetime="${escapeHTML(event.created_at || event.recorded_at)}">Recorded ${escapeHTML(formatTime(event.created_at || event.recorded_at))}</time></div><h2>${escapeHTML(payload.title || (payload.action === 'hold' ? 'A decision to hold.' : payload.summary?.slice(0, 85) || 'Recorded contribution'))}</h2><div class="record-summary">${escapeHTML(payload.summary || payload.thesis || payload.message || 'No summary supplied.')}</div>${facts.some(([, value]) => value !== undefined && value !== null && value !== '') ? `<div class="record-facts">${facts.filter(([, value]) => value !== undefined && value !== null && value !== '').map(([label, value]) => `<dl><dt>${escapeHTML(label)}</dt><dd>${escapeHTML(asText(value))}</dd></dl>`).join('')}</div>` : ''}${evidenceHTML}<p class="record-id">${payload.author ? `Authored by ${escapeHTML(payload.author)} · ` : ''}Immutable record ${escapeHTML(event.id || 'ID unavailable')}</p></article>`;
+  return `<article class="record-card"><div class="record-topline"><span class="role-tag ${kind}">${escapeHTML(roleName(event))}${event.kind === 'decision' ? ' · Proposal' : ''}</span><time datetime="${escapeHTML(event.created_at || event.recorded_at)}">Recorded ${escapeHTML(formatTime(event.created_at || event.recorded_at))}</time></div><h2>${escapeHTML(payload.title || (payload.action === 'hold' ? 'A decision to hold.' : payload.summary?.slice(0, 85) || 'Recorded contribution'))}</h2><div class="record-summary">${escapeHTML(payload.summary || payload.thesis || payload.message || 'No summary supplied.')}</div><details class="record-detail"><summary>Read thesis, dissent &amp; sources</summary>${facts.some(([, value]) => value !== undefined && value !== null && value !== '') ? `<div class="record-facts">${facts.filter(([, value]) => value !== undefined && value !== null && value !== '').map(([label, value]) => `<dl><dt>${escapeHTML(label)}</dt><dd>${readableValue(value)}</dd></dl>`).join('')}</div>` : ''}${evidenceHTML}<p class="record-id">${payload.author ? `Authored by ${escapeHTML(payload.author)} · ` : ''}Immutable record ${escapeHTML(event.id || 'ID unavailable')}</p></details></article>`;
 }
 
 function renderRecords(state) {
@@ -183,10 +198,15 @@ function renderRecords(state) {
   $('#contribution-total').textContent = `${contributions.length} recorded contribution${contributions.length === 1 ? '' : 's'}${state.history_truncated ? ' · recent window only; export for full history' : ''}`;
   const filter = $('#decision-filter').value;
   const filtered = contributions.filter((event) => filter === 'all' || event.kind === filter);
-  $('#decision-list').innerHTML = filtered.length ? filtered.map((event) => recordCard(event)).join('') : emptyState(filter === 'all' ? 'Good decisions leave a trail.' : 'No contributions in this view.', filter === 'all' ? 'The first research brief, independent challenge, and final decision will appear here as they are submitted. No conversations have been invented.' : 'Try another contribution type, or return after the next review.', '↗');
-  $('#journal-list').innerHTML = decisions.length ? decisions.map((event) => recordCard(event, true)).join('') : emptyState('A blank page, by design.', 'No investment thesis has been approved. The journal will preserve each original thesis, uncertainty, time horizon, and invalidation condition as decisions arrive.', 'Ⅰ');
+  $('#decision-list').innerHTML = filtered.length ? filtered.map((event) => recordCard(event)).join('') : emptyState('No contributions', 'No records in this view.');
+  const journal = contributions.filter(event => ['decision', 'revision'].includes(event.kind));
+  $('#journal-list').innerHTML = journal.length ? journal.map((event) => recordCard(event, true)).join('') : emptyState('No decisions yet', 'Awaiting manager review.');
+  if (!$('#replay-date').value || $('#replay-date').value === 'all') {
+    $('#replay-list').innerHTML = events.length ? events.map(event => recordCard(event)).join('') : emptyState('No history yet', '');
+    $('#replay-status').textContent = state.history_truncated ? 'Recent records · Download the full audit log in Operations.' : 'Present record';
+  }
   const latest = decisions[0];
-  $('#latest-decision').innerHTML = latest ? `<div class="latest-content"><div class="eyebrow">${escapeHTML(latest.payload.action || 'RECORDED DECISION')}</div><h3>${escapeHTML(latest.payload.title || 'A recorded decision')}</h3><p>${escapeHTML(latest.payload.summary || latest.payload.thesis || '')}</p><p class="latest-meta">Recorded ${escapeHTML(formatTime(latest.created_at, true))}</p></div>` : `<div class="latest-content"><div class="eyebrow">AWAITING FIRST REVIEW</div><h3>We’re starting with a question.<br>Not a trade.</h3><p>No investment decision has been submitted. Research and independent challenges will be preserved before capital is put to work.</p></div>`;
+  $('#latest-decision').innerHTML = latest ? `<div class="latest-content"><div class="eyebrow">Manager proposal · ${escapeHTML(latest.payload.action || 'Decision')}</div><h3>${escapeHTML(latest.payload.title || 'A recorded decision')}</h3><p>${escapeHTML(latest.payload.summary || latest.payload.thesis || '')}</p><p class="latest-meta">Recorded ${escapeHTML(formatTime(latest.created_at, true))}</p></div>` : `<div class="latest-content"><h3>No manager action yet</h3></div>`;
 }
 
 function healthItem(label, value, detail = '', kind = '') {
@@ -215,12 +235,16 @@ function renderHealth(state) {
     healthItem('Blue connection', healthValue(health.blue_connection ?? health.mcp), 'Authenticated Site tools; no separate AI API billing.'),
     healthItem('Unattended updates', healthValue(automation, 'Not verified'), health.schedule || health.automation_detail || 'A saved schedule alone does not prove a successful run.'),
     healthItem('Last successful review', review ? formatTime(review) : 'No completed review', 'Research, independent challenge, and final decision.'),
-    healthItem('Execution readiness', healthValue(health.execution ?? health.execution_status ?? health.trading, 'Locked while paused'), health.data_fresh === true ? 'The latest observation passed the freshness check. Experiment pause still blocks trades.' : 'Data has not passed current execution freshness checks. Trading stays blocked.', 'warning'),
+    healthItem('Execution readiness', healthValue(health.execution ?? health.execution_status ?? health.trading, 'See recorded protocol'), health.data_fresh === true ? 'Freshness check passed. Execution remains subject to the recorded protocol and release-specific gates.' : 'Current execution freshness is unverified. This display grants no execution permission.', 'warning'),
   ];
   if (health.last_error) rows.push(healthItem('Last update error', 'Needs attention', asText(health.last_error), 'warning'));
   else if (health.last_failure) rows.push(healthItem('Last failed update', formatTime(health.last_failure), 'See the immutable timeline for the recorded failure.', 'warning'));
   if (state.account_drift) rows.push(healthItem('External account activity', 'Reconciliation required', 'Broker holdings or cash differ from the original allocation. Official experiment accounting has not silently adopted those changes.', 'warning'));
-  if (Array.isArray(health.verification)) health.verification.forEach((item) => rows.push(healthItem(item.title || 'Recorded verification', item.status || 'See recorded result', item.summary || '', item.status === 'passed' ? 'ok' : '')));
+  if (Array.isArray(health.verification)) health.verification.forEach((item) => {
+    const outcome = item.outcome ?? item.status ?? 'Not recorded';
+    const detail = [`Check: ${item.check || 'Not recorded'}`, `Revision: ${item.revision || item.release_revision || item.commit_sha || 'Not recorded'}`, item.summary].filter(Boolean).join(' · ');
+    rows.push(healthItem(item.title || 'Recorded verification', asText(outcome), detail, outcome === 'passed' ? 'ok' : outcome === 'failed' ? 'warning' : ''));
+  });
   if (Array.isArray(health.blockers)) health.blockers.forEach((item, index) => rows.push(healthItem(`Readiness blocker ${index + 1}`, 'Unresolved', asText(item), 'warning')));
   $('#health-list').innerHTML = rows.join('');
 }
@@ -273,9 +297,9 @@ $('#refresh-button').addEventListener('click', async () => {
   try {
     const result = await request('/api/refresh', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idempotency_key: crypto.randomUUID() }) });
     const loaded = await loadState();
-    if (loaded) showMessage(result.message || 'Market refresh completed and the persistent state was read back. The official experiment remains paused.');
+    if (loaded) showMessage(result.message || 'Market observations refreshed.');
   } catch (error) { showMessage(`${error.message} The previous state is retained; a failed update does not authorize a trade.`, true); }
-  finally { button.disabled = false; button.innerHTML = '<span aria-hidden="true">↻</span> Refresh data'; }
+  finally { button.disabled = false; button.innerHTML = '<span aria-hidden="true"><svg class="ui-icon" viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 8a6 6 0 1 0 0 5M16 3v5h-5"/></svg></span> Refresh'; }
 });
 
 $('#replay-button').addEventListener('click', async () => {
@@ -289,14 +313,14 @@ $('#replay-button').addEventListener('click', async () => {
   try {
     const replay = await request(`/api/state?as_of=${encodeURIComponent(date.toISOString())}`);
     const events = getEvents(replay).filter((event) => new Date(event.created_at || event.recorded_at) <= date);
-    $('#replay-status').textContent = `${events.length} record${events.length === 1 ? '' : 's'} available as of ${formatTime(date.toISOString())}. This is a receipt-time view, not a reconstructed conversation.`;
+    $('#replay-status').textContent = `${events.length} record${events.length === 1 ? '' : 's'} available as of ${formatTime(date.toISOString())}. ${replay.history_truncated ? 'Recent window only; download the full audit log in Operations.' : 'Receipt-time view.'}`;
     $('#replay-list').innerHTML = events.length ? events.map((event) => recordCard(event)).join('') : emptyState('Before the record began.', 'No information had been recorded by the chosen moment. Information received later has been excluded.', '↶');
   } catch (error) { $('#replay-status').textContent = error.message; $('#replay-list').innerHTML = ''; }
   finally { button.disabled = false; }
 });
 $('#replay-reset').addEventListener('click', () => {
   $('#replay-date').value = '';
-  $('#replay-status').textContent = 'Showing the present record. Choose a past moment to restrict available information.';
+  $('#replay-status').textContent = currentState?.history_truncated ? 'Recent records · Download the full audit log in Operations.' : 'Present record';
   const events = currentState ? getEvents(currentState) : [];
   $('#replay-list').innerHTML = events.length ? events.map((event) => recordCard(event)).join('') : emptyState('Nothing to rewind yet.', 'The immutable timeline begins when the first record is received.', '↶');
 });
