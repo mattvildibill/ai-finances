@@ -40,7 +40,7 @@ test('missing NAV history is unavailable even if undocumented history-like field
   view.renderChart({ performance: series, history: series }, true);
   assert.match(view.get('#performance-chart').innerHTML, /Performance history unavailable/);
   assert.doesNotMatch(view.get('#performance-chart').innerHTML, /svg|polyline|second observation/);
-  view.renderChart({}, false);
+  view.renderChart({ experiment: { started_at: null, phase: 'unstarted' } }, false);
   assert.match(view.get('#performance-chart').innerHTML, /Not started/);
 });
 
@@ -86,7 +86,7 @@ test('statement distinguishes positive, negative, zero and unavailable P&L witho
   view.renderState({ portfolio: { value: null, cash: 96000, holdings_status: 'unknown' } });
   assert.equal(view.get('#invested-value').textContent, '—');
   assert.equal(view.get('#holdings-empty strong').textContent, 'Holdings unavailable');
-  assert.equal(view.get('#return-value').textContent, 'Not started');
+  assert.equal(view.get('#return-value').textContent, '—');
 });
 
 test('quote source times distinguish stale, future and unverified observations', () => {
@@ -128,8 +128,9 @@ test('all navigation routes, refresh errors, loading retry and history controls 
   const buttons = routes.map(route => Object.assign(element(`button-${route}`), { dataset: { view: route } }));
   const sections = routes.map(route => element(`#view-${route}`));
   let fail = true;
+  let responseGate = null;
   const fixture = { as_of:'2026-10-27T14:00:00Z', history_truncated:true, portfolio:{value:100000,cash:100000}, events:[] };
-  const context = vm.createContext({ document: {querySelector:element,querySelectorAll:s=>s === '[data-view]' || s === '.nav-item' ? buttons : s === '.view' ? sections : []}, URL, Intl, history:{replaceState(){}}, location:{hash:''}, window:{addEventListener(){},scrollTo(){}}, crypto:{randomUUID:()=> 'isolated-key'}, fetch:async()=> { if(fail) throw Error('Isolated failure'); return {ok:true,json:async()=>fixture}; } });
+  const context = vm.createContext({ document: {querySelector:element,querySelectorAll:s=>s === '[data-view]' || s === '.nav-item' ? buttons : s === '.view' ? sections : []}, URL, Intl, history:{replaceState(){}}, location:{hash:''}, window:{addEventListener(){},scrollTo(){}}, crypto:{randomUUID:()=> 'isolated-key'}, fetch:async()=> { if(responseGate) await responseGate; if(fail) throw Error('Isolated failure'); return {ok:true,json:async()=>fixture}; } });
   vm.runInContext(readFileSync(new URL('../web/app.js', import.meta.url),'utf8'),context);
   await new Promise(resolve=>setImmediate(resolve));
   assert.match(element('#loading').innerHTML,/Try again/);
@@ -153,6 +154,16 @@ test('all navigation routes, refresh errors, loading retry and history controls 
   assert.match(element('#replay-status').textContent,/Recent window/);
   element('#replay-reset').handlers.click();
   assert.match(element('#replay-status').textContent,/Recent records/);
+  let releaseResponse;
+  responseGate = new Promise(resolve => { releaseResponse = resolve; });
+  element('#replay-date').value='2020-01-01T12:00';
+  const pendingReplay = element('#replay-button').handlers.click();
+  element('#replay-reset').handlers.click();
+  releaseResponse();
+  await pendingReplay;
+  responseGate = null;
+  assert.match(element('#replay-status').textContent,/Recent records/);
+  assert.equal(element('#replay-date').value,'');
   fail=true;
   await element('#refresh-button').handlers.click();
   assert.match(element('#global-message').textContent,/previous state is retained/);
@@ -181,4 +192,65 @@ test('offline review artifact retains literal JavaScript dollar tokens and compi
   assert.ok(script.includes("$$('[data-view]')"));
   assert.doesNotThrow(() => new vm.Script(script));
   assert.doesNotMatch(html, /src="\/app.js"|href="\/styles.css"/);
+});
+
+test('only a verified sole pre-inception reconciliation blocker is Awaiting start', () => {
+  const view = ui();
+  const base = { experiment: { status:'paused', phase:'unstarted', started_at:null }, accounting: { status:'not_started', problems:[{code:'not_started'}] }, account_drift:false, health:{source_status:'connected',data_fresh:false}, last_reconciliation:{created_at:'2026-10-27T09:49:16Z',payload:{status:'blocked',ledger_status:'not_started',trading_permitted:false,problems:[{code:'not_started',message:'The official experiment has not started.'}]}} };
+  const row = state => { view.renderState(state); return view.get('#health-list').innerHTML.split('</strong></div>')[0] + '</strong></div>'; };
+  const original = JSON.stringify(base);
+  assert.match(row(base), />Awaiting start</);
+  assert.match(row(base), /execution remains gated/);
+  assert.equal(JSON.stringify(base), original);
+  for (const code of ['cash_mismatch','position_mismatch','external_open_order','reconciliation_failed','corporate_actions_unverified','invalid_broker_state']) {
+    const mixed = structuredClone(base);
+    mixed.last_reconciliation.payload.problems.push({code,message:`Actual ${code}`});
+    assert.doesNotMatch(row(mixed), /Awaiting start/);
+    assert.match(row(mixed), new RegExp(`Actual ${code}`));
+    assert.match(row(mixed), />blocked</);
+  }
+  for (const alter of [
+    state=>state.account_drift=true,
+    state=>delete state.account_drift,
+    state=>state.account_drift=null,
+    state=>delete state.health.source_status,
+    state=>state.health.source_status='unverified',
+    state=>state.accounting.problems=[],
+    state=>state.health.source_status='failed',
+    state=>state.health.last_error='Source unavailable',
+    state=>state.experiment.started_at='2026-10-27T13:30:00Z',
+    state=>delete state.experiment.started_at,
+    state=>delete state.accounting,
+    state=>state.accounting.problems.push({code:'invalid_opening'}),
+    state=>state.last_reconciliation.payload.problems=[],
+    state=>state.last_reconciliation.payload.problems=['not_started'],
+    state=>delete state.last_reconciliation.payload.problems,
+    state=>delete state.last_reconciliation.payload.ledger_status,
+    state=>state.last_reconciliation.payload.trading_permitted=true
+  ]) { const state=structuredClone(base);alter(state);assert.doesNotMatch(row(state),/Awaiting start/); }
+  const started=structuredClone(base);started.experiment.started_at='2026-10-27T13:30:00Z';started.accounting.status='ready';started.last_reconciliation.payload={status:'reconciled',ledger_status:'ready',problems:[],trading_permitted:false};
+  assert.match(row(started),/>reconciled</);
+  started.last_reconciliation.payload={status:'blocked',problems:[{code:'cash_mismatch',message:'Cash mismatch'}]};
+  assert.match(row(started),/Cash mismatch/);
+  assert.match(row({}),/>Not run</);
+  assert.match(row({last_reconciliation:{payload:{}}}),/>Unverified</);
+});
+
+test('unknown and malformed numeric state never becomes reassuring zero or pre-launch', () => {
+  const view=ui();
+  for (const value of [null, undefined, '', '  ', false, true, [], {}, 'NaN']) {
+    view.renderState({portfolio:{value,cash:value}});
+    assert.equal(view.get('#portfolio-value').textContent,'—');
+    assert.equal(view.get('#cash-value').textContent,'—');
+    assert.equal(view.get('#invested-value').textContent,'—');
+    assert.equal(view.get('#capital-state').textContent,'UNVERIFIED');
+    assert.equal(view.get('#operations-status').textContent,'Unverified');
+    assert.equal(view.get('#return-value').textContent,'—');
+    assert.equal(view.get('#holdings-count').textContent,'Holdings unavailable');
+    assert.doesNotMatch(view.get('#risk-grid').innerHTML,/No invested exposure/);
+  }
+  view.renderState({experiment:{status:'paused',phase:'unstarted',started_at:null},portfolio:{value:100000,cash:100000,holdings:[]}});
+  assert.equal(view.get('#return-value').textContent,'Not started');
+  assert.equal(view.get('#capital-state').textContent,'PRE-LAUNCH');
+  assert.equal(view.get('#holdings-count').textContent,'0 positions');
 });
