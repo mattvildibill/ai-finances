@@ -89,7 +89,7 @@ test('paused execution sends zero requests even if TRADING_ENABLED is set', asyn
 test('Alpaca transport hard-codes paper origin and explicit free IEX data feed', async () => {
   const f = brokerFixture(); const p = await observe({ ...testEnv, ALPACA_BASE_URL: 'https://api.alpaca.markets' }, f.fetcher);
   assert.equal(p.feed, 'iex'); assert.equal(p.execution_ready, true); assert.equal(f.calls.length, 5);
-  for (const call of f.calls) { assert.equal(call.redirect, 'error'); assert.equal(call.method, 'GET'); assert.ok([PAPER, DATA].includes(new URL(call.url).origin)); }
+  for (const call of f.calls) { assert.equal(call.redirect, 'manual'); assert.equal(call.method, 'GET'); assert.ok([PAPER, DATA].includes(new URL(call.url).origin)); }
   const data = f.calls.find(c => c.url.startsWith(DATA)); assert.equal(new URL(data.url).searchParams.get('feed'), 'iex');
   await assert.rejects(alpaca(testEnv, 'https://api.alpaca.markets/v2/orders', { fetcher: f.fetcher }), /Invalid Alpaca path/);
   await assert.rejects(alpaca(testEnv, '/v2/../v2/account', { fetcher: f.fetcher }), /Invalid Alpaca path/);
