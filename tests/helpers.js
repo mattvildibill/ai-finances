@@ -37,6 +37,7 @@ export function brokerFixture(overrides = {}) {
     const u = new URL(url); let body;
     if (overrides.failStatus) return new Response('{}', { status: overrides.failStatus });
     if (u.pathname === '/v2/account') body = account;
+    else if (u.pathname === '/v2/account/activities/FILL') body = [];
     else if (u.pathname === '/v2/clock') body = clock;
     else if (u.pathname === '/v2/positions') body = overrides.positions || [];
     else if (u.pathname === '/v2/orders') body = overrides.orders || [];
