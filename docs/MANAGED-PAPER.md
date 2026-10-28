@@ -55,3 +55,51 @@ Supported whole-account splits preserve total cost and scale daily-lot quantitie
 ### Target price observations before a decision
 
 `managed_portfolio` operation `observe_target`, input `{ "idempotency_key": "unique-observation-key", "symbol": "IJR" }`, records a real broker snapshot for an already approved managed instrument together with held assets and SPY. It uses the existing fixed-host GET-only observation and reconciliation path, including its execution lease. It works with managed execution disabled and during market closure; it does not require a buy decision, grant permission, change instrument/action approvals, or place an order. The snapshot retains IEX feed, actual trade/retrieval times, age, asset approval identity, account and holdings. Old prints remain labeled with their actual age, never refreshed synthetically. Use its snapshot ID in research; execution still obtains its own fresh regular-session evidence. A retry returns the original observation, not a newly dated quote; use a new key for a new observation. Keys cannot be reused for a different target or ordinary refresh.
+
+## Read-only account cash activity diagnostics — 28 October 2026
+
+`managed_portfolio` operation `collect_cash_activities` accepts only
+`input: {idempotency_key}`. It requires the existing managed mandate, but remains
+available with execution disabled, stale quotes, expired trading authority or
+failed account reconciliation. This is evidence acquisition, never an order,
+fee approval, cash adjustment or successful reconciliation.
+
+The existing runtime credentials are used only through the fixed Alpaca paper
+transport: GET `/v2/account/activities`, all activity types, ascending order,
+100 rows per page, last returned activity ID as cursor. A server-captured `until`
+cutoff is fixed across pages. No caller URL, credentials, filters, dates or account
+ID are accepted. All available history through that cutoff is requested, including
+pre-inception records, to avoid suppressing an unexplained activity. A short page
+completes the broker response scan; this does not prove broker-side completeness
+or explain cash. Endpoint/query contract reference: Alpaca's maintained legacy
+SDK `get_activities`, https://github.com/alpacahq/alpaca-trade-api-python/blob/master/alpaca_trade_api/rest.py .
+
+Limits: 20 pages, 100 rows/page, 256 KiB/page and 2 MiB total response bytes.
+Missing/repeated IDs, invalid pages, HTTP/quota/redirect errors and exceeded bounds
+produce incomplete results. No automatic retry bypasses a quota or limit. The
+execution lease is renewed and fenced around requests and receipt writes. A lost
+lease leaves the started scan incomplete and cannot write with the old token.
+
+Immutable `cash_activity_scan`, `cash_activity_page` and `cash_activity_result`
+records retain the request cutoff, URL, retrieval start/observation times and raw
+broker JSON (including original economic dates, decimal text and IDs). No source
+amount/date is normalized into a ledger entry. Results reference page receipt IDs;
+read those pages with existing history export. Identical keys return the original
+result, or the original incomplete start after interruption, without refetching.
+A distinct deliberately initiated scan needs its own key. A successful later scan
+can resolve a transport-only incomplete scan, but cannot erase earlier unknown,
+non-fill or contradictory fill evidence.
+
+Every non-fill activity remains an accounting blocker pending a separately
+reviewed evidence-backed implementation. Collected fills must exactly match
+retained `broker_activity` JSON; missing or changed evidence also blocks.
+Receipt-time replay retains the original historical state. Fresh ordinary
+reconciliation is still required after any acquisition; a successful scan does
+not grant trading permission. Never turn a one-cent discrepancy into a tolerance.
+
+The initial failure under deployed f9af95ac showed $96,160.02 evidenced cash
+versus $96,160.01 broker cash with five SPY shares and matching $3,839.98 basis.
+This diagnostic implementation does not identify its cause. Actual non-fill
+receipts require parent-reviewed publication and a subsequent native scan.
+No deployment, enablement, source review attestation or actual fee is implied by
+these instructions or synthetic tests.
