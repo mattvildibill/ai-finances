@@ -30,7 +30,7 @@ test('reconciliation retains complete raw position evidence on mismatch without 
  const {db}=temporaryDatabase(t),actor='synthetic-position-evidence',at=new Date(Date.now()-10000).toISOString();
  await append(db,{id:'synthetic-position-opening',kind:'experiment_opened',actor,payload:{accounting_policy:'usd-nano-v1',initial_cash_cents:10000000,started_at:at,benchmark:createNanoBenchmark({started_at:at,observed_at:at,market_time:at,price_text:'500'})}},at);
  await append(db,{id:'synthetic-position-fill',kind:'ledger_fill',actor,payload:{fill:{id:'synthetic-position-fill',symbol:'SPY',side:'buy',quantity:32,price_text:'770.4509375',fee_cents:0,occurred_at:at,observed_at:at}}},at);
- const position={symbol:'SPY',qty:'32',side:'long',avg_entry_price:'770.450938',cost_basis:'24654.430016',market_value:'24640',unrealized_pl:'-14.430016',asset_id:'synthetic-asset'};
+ const position={symbol:'SPY',qty:'32',side:'long',avg_entry_price:'770.450939',cost_basis:'24654.430016',market_value:'24640',unrealized_pl:'-14.430016',asset_id:'synthetic-asset'};
  const calls=[],fetcher=async(url,options)=>{calls.push({url,method:options.method});const u=new URL(url);assert.equal(u.origin,'https://paper-api.alpaca.markets');assert.equal(options.method,'GET');return Response.json(u.pathname==='/v2/account'?{status:'ACTIVE',currency:'USD',cash:'75345.57'}:u.pathname==='/v2/positions'?[position]:[]);};
  const before=await readLedger(db);const result=await reconcile(db,testEnv,'synthetic-position-reconciliation',actor,fetcher);
  assert.equal(result.payload.status,'blocked');assert.ok(result.payload.problems.some(p=>p.code==='basis_mismatch'));

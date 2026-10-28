@@ -72,3 +72,43 @@ prior history and execution guards are unchanged. Parent-reviewed publication
 and a fresh GET-only reconciliation are required to obtain the missing raw
 position average. Any later representation handling needs explicit evidence and
 review; this diagnostic change does not resolve or authorize ignoring the mismatch.
+
+## Observed average-price representation — 28 October 2026
+
+The diagnostic deployment subsequently retained actual seq714: 32SPY shares,
+`avg_entry_price: "770.450938"`, `cost_basis: "24654.430016"`. The receipt digest is
+`b50f798d86e82de885efb48577e4f4d4677942eda767ed38f7e9f9e25ea30c49`.
+This supplies the missing reported average, without establishing a universal
+Alpaca rounding contract. That original blocked reconciliation remains immutable.
+
+The explicit application policy `observed-average-six-decimal-half-up-v1` adds a
+representation-only alternative to direct basis comparison. It requires:
+
+- Positive safe whole-share quantity matching the independently projected holding.
+- A reported average containing exactly six fractional decimal digits, equal to
+  half-up rounding of the exact projected rational per-share basis to six places.
+- Reported total basis exactly equal to that reported average times quantity.
+- Exact rational absolute representation difference at most quantity times500
+  nano-dollars (half of one millionth of a dollar per share), the mathematical
+  bound of this specific rounding operation. No freely chosen epsilon is used.
+
+All calculations use integers/rationals. Basis/average precision is bounded to
+nine decimals, projected integer strings to80 digits and quantity to a positive
+safe integer. Nearby basis values, wrong averages, unsupported precision,
+contradictory aliases, mixed BOD candidates and quantity mismatches fail closed.
+
+When direct basis already matches under the prior policy, a supplied average
+must itself be exact or satisfy the supported six-decimal representation; an
+absent historical average is not invented. Direct basis matching need not equal
+a rounded displayed average times quantity. The representation alternative does
+require that exact identity. Per-position diagnostics disclose which branch was
+used, raw average, exact rational average, expected six-place average, derived
+basis, difference and mathematical bound.
+
+This policy does not normalize the ledger or cash, replace any fill, change
+analytic basis, alter SPY inception or rewrite a reconciliation receipt. All
+current broker-basis consumers use the same comparator, including reconciliation,
+valuation and managed order preflight. The actual32-share case retains analytical
+basis24654.43 and accepts only the evidenced derived broker basis24654.430016.
+Cash43546.18 remains subject to exact matching. A fresh successful reconciliation
+and fresh snapshot are required; source review does not authorize an order.

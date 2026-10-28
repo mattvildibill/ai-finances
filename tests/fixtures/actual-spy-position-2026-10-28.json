@@ -1,0 +1,261 @@
+{
+  "records": [
+    {
+      "seq": 714,
+      "id": "reconciliation:d43ec8abb59c98a61c80196b172a99573cb54c9801a0b16a",
+      "kind": "reconciliation",
+      "created_at": "2026-10-28T19:42:44.033Z",
+      "actor": "chatgpt:zMHNC1eDbqdTs2pUnlShYCZjqMxFAYgnUcIkMrhHhthItqu2DhZmHA",
+      "payload": {
+        "broker_positions": {
+          "source_url": "https://paper-api.alpaca.markets/v2/positions",
+          "retrieval_started_at": "2026-10-28T19:42:41.704Z",
+          "observed_at": "2026-10-28T19:42:42.398Z",
+          "positions": [
+            {
+              "asset_id": "e3047683-637a-4fb2-b71d-805cd6fec95d",
+              "symbol": "JPM",
+              "exchange": "NYSE",
+              "asset_class": "us_equity",
+              "asset_marginable": true,
+              "qty": "35",
+              "qty_available": "35",
+              "avg_entry_price": "339.18",
+              "side": "long",
+              "market_value": "11865",
+              "cost_basis": "11871.3",
+              "unrealized_pl": "-6.3",
+              "unrealized_plpc": "-0.00053",
+              "unrealized_intraday_pl": "-6.3",
+              "unrealized_intraday_plpc": "-0.00053",
+              "current_price": "339",
+              "lastday_price": "335.79",
+              "change_today": "0.00956"
+            },
+            {
+              "asset_id": "8aeca3f2-e123-4857-918b-1785a683b430",
+              "symbol": "SOFI",
+              "exchange": "NASDAQ",
+              "asset_class": "us_equity",
+              "asset_marginable": true,
+              "qty": "701",
+              "qty_available": "701",
+              "avg_entry_price": "17.08",
+              "side": "long",
+              "market_value": "11962.565",
+              "cost_basis": "11973.08",
+              "unrealized_pl": "-10.515",
+              "unrealized_plpc": "-0.00088",
+              "unrealized_intraday_pl": "-10.515",
+              "unrealized_intraday_plpc": "-0.00088",
+              "current_price": "17.065",
+              "lastday_price": "16.4",
+              "change_today": "0.04055"
+            },
+            {
+              "asset_id": "b28f4066-5c6d-479b-a2af-85dc1a8f16fb",
+              "symbol": "SPY",
+              "exchange": "ARCA",
+              "asset_class": "us_equity",
+              "asset_marginable": true,
+              "qty": "32",
+              "qty_available": "32",
+              "avg_entry_price": "770.450938",
+              "side": "long",
+              "market_value": "24681.92",
+              "cost_basis": "24654.430016",
+              "unrealized_pl": "27.489984",
+              "unrealized_plpc": "0.00112",
+              "unrealized_intraday_pl": "52.8",
+              "unrealized_intraday_plpc": "0.00214",
+              "current_price": "771.31",
+              "lastday_price": "769.66",
+              "change_today": "0.00214"
+            },
+            {
+              "asset_id": "345fc677-4a38-4d2f-8efd-a86fea2a3903",
+              "symbol": "TOST",
+              "exchange": "NYSE",
+              "asset_class": "us_equity",
+              "asset_marginable": true,
+              "qty": "250",
+              "qty_available": "250",
+              "avg_entry_price": "31.82",
+              "side": "long",
+              "market_value": "7948.75",
+              "cost_basis": "7955",
+              "unrealized_pl": "-6.25",
+              "unrealized_plpc": "-0.00079",
+              "unrealized_intraday_pl": "-6.25",
+              "unrealized_intraday_plpc": "-0.00079",
+              "current_price": "31.795",
+              "lastday_price": "31.77",
+              "change_today": "0.00079"
+            }
+          ]
+        },
+        "status": "blocked",
+        "trading_permitted": false,
+        "activity_count": 12,
+        "new_fills": 0,
+        "orders_closed": 0,
+        "ledger_status": "ready",
+        "ledger_cash_cents": 4354618,
+        "ledger_cash_nanos": "43546180000000",
+        "accounting_policy": "usd-nano-v1",
+        "problems": [
+          {
+            "code": "basis_mismatch",
+            "message": "Broker basis differs from documented receipt-derived intraday/BOD projections.",
+            "broker_basis_comparison": {
+              "matched": false,
+              "policy": "alpaca-daily-compressed-fifo-v1",
+              "as_of": "2026-10-28T19:42:43.689Z",
+              "candidates": [
+                {
+                  "phase": "after_bod",
+                  "matched": false,
+                  "checks": [
+                    {
+                      "symbol": "JPM",
+                      "quantity": 35,
+                      "matched": true,
+                      "policy": "exact-nano-dollar",
+                      "raw": "11871.3",
+                      "precision": 2,
+                      "expected_display": "11871.30",
+                      "exact_nanos": {
+                        "numerator": "11871300000000",
+                        "denominator": "1"
+                      },
+                      "quantity_matches": true
+                    },
+                    {
+                      "symbol": "SOFI",
+                      "quantity": 701,
+                      "matched": true,
+                      "policy": "exact-nano-dollar",
+                      "raw": "11973.08",
+                      "precision": 2,
+                      "expected_display": "11973.08",
+                      "exact_nanos": {
+                        "numerator": "11973080000000",
+                        "denominator": "1"
+                      },
+                      "quantity_matches": true
+                    },
+                    {
+                      "symbol": "SPY",
+                      "quantity": 32,
+                      "matched": false,
+                      "policy": "exact-nano-dollar",
+                      "raw": "24654.430016",
+                      "precision": 6,
+                      "expected_display": "24654.430000",
+                      "exact_nanos": {
+                        "numerator": "24654430000000",
+                        "denominator": "1"
+                      },
+                      "quantity_matches": true
+                    },
+                    {
+                      "symbol": "TOST",
+                      "quantity": 250,
+                      "matched": true,
+                      "policy": "exact-nano-dollar",
+                      "raw": "7955",
+                      "precision": 2,
+                      "expected_display": "7955.00",
+                      "exact_nanos": {
+                        "numerator": "7955000000000",
+                        "denominator": "1"
+                      },
+                      "quantity_matches": true
+                    }
+                  ]
+                }
+              ],
+              "problem": null
+            },
+            "analytical_basis_preserved": true
+          }
+        ],
+        "broker_basis_comparison": {
+          "matched": false,
+          "policy": "alpaca-daily-compressed-fifo-v1",
+          "as_of": "2026-10-28T19:42:43.689Z",
+          "candidates": [
+            {
+              "phase": "after_bod",
+              "matched": false,
+              "checks": [
+                {
+                  "symbol": "JPM",
+                  "quantity": 35,
+                  "matched": true,
+                  "policy": "exact-nano-dollar",
+                  "raw": "11871.3",
+                  "precision": 2,
+                  "expected_display": "11871.30",
+                  "exact_nanos": {
+                    "numerator": "11871300000000",
+                    "denominator": "1"
+                  },
+                  "quantity_matches": true
+                },
+                {
+                  "symbol": "SOFI",
+                  "quantity": 701,
+                  "matched": true,
+                  "policy": "exact-nano-dollar",
+                  "raw": "11973.08",
+                  "precision": 2,
+                  "expected_display": "11973.08",
+                  "exact_nanos": {
+                    "numerator": "11973080000000",
+                    "denominator": "1"
+                  },
+                  "quantity_matches": true
+                },
+                {
+                  "symbol": "SPY",
+                  "quantity": 32,
+                  "matched": false,
+                  "policy": "exact-nano-dollar",
+                  "raw": "24654.430016",
+                  "precision": 6,
+                  "expected_display": "24654.430000",
+                  "exact_nanos": {
+                    "numerator": "24654430000000",
+                    "denominator": "1"
+                  },
+                  "quantity_matches": true
+                },
+                {
+                  "symbol": "TOST",
+                  "quantity": 250,
+                  "matched": true,
+                  "policy": "exact-nano-dollar",
+                  "raw": "7955",
+                  "precision": 2,
+                  "expected_display": "7955.00",
+                  "exact_nanos": {
+                    "numerator": "7955000000000",
+                    "denominator": "1"
+                  },
+                  "quantity_matches": true
+                }
+              ]
+            }
+          ],
+          "problem": null
+        },
+        "analytical_basis_method": "weighted-average; unchanged",
+        "source": "Alpaca paper API",
+        "retrieved_at": "2026-10-28T19:42:43.941Z",
+        "scope": "Broker transport reconciles FILL activities, known orders, cash and quantities (plus separately projected Alpaca intraday/compressed-FIFO basis under usd-nano-v1). Shared reviewed ordinary distributions/splits replay separately; modeled income never changes broker cash. Unsupported actions, fees and unexplained cash/basis differences block."
+      },
+      "digest": "b50f798d86e82de885efb48577e4f4d4677942eda767ed38f7e9f9e25ea30c49"
+    }
+  ]
+}
