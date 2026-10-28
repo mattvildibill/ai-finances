@@ -1,0 +1,380 @@
+{
+  "scope": "Actual native receipts after seq652; full broker position average was not retained.",
+  "records": [
+    {
+      "seq": 658,
+      "id": "broker-order:81235779bfb8d85a029676294bbbebe00dc75eb240d35551",
+      "kind": "broker_order",
+      "created_at": "2026-10-28T19:36:49.382Z",
+      "actor": "chatgpt:zMHNC1eDbqdTs2pUnlShYCZjqMxFAYgnUcIkMrhHhthItqu2DhZmHA",
+      "payload": {
+        "intent_id": "order-intent:3d5c2cb4d5fbe5b381eab8336f22917b1161cc55",
+        "order": {
+          "id": "8bf4001c-aa02-4599-b975-e9f911ecfde9",
+          "client_order_id": "blue-3d5c2cb4d5fbe5b381eab8336f22917b1161cc55",
+          "created_at": "2026-10-28T19:36:33.458414125Z",
+          "updated_at": "2026-10-28T19:36:34.774569937Z",
+          "submitted_at": "2026-10-28T19:36:33.463939259Z",
+          "filled_at": "2026-10-28T19:36:34.772902916Z",
+          "expired_at": null,
+          "canceled_at": null,
+          "failed_at": null,
+          "replaced_at": null,
+          "replaced_by": null,
+          "replaces": null,
+          "asset_id": "b28f4066-5c6d-479b-a2af-85dc1a8f16fb",
+          "symbol": "SPY",
+          "asset_class": "us_equity",
+          "notional": null,
+          "qty": "27",
+          "filled_qty": "27",
+          "filled_avg_price": "770.905556",
+          "order_class": "",
+          "order_type": "limit",
+          "type": "limit",
+          "side": "buy",
+          "position_intent": "buy_to_open",
+          "time_in_force": "day",
+          "limit_price": "772",
+          "stop_price": null,
+          "status": "filled",
+          "extended_hours": false,
+          "legs": null,
+          "trail_percent": null,
+          "trail_price": null,
+          "hwm": null,
+          "subtag": null,
+          "source": null,
+          "expires_at": "2026-10-28T20:00:00Z"
+        }
+      },
+      "digest": "c83c5d4cf132f9f2c721711e96f262cf1c453860a5e4f03824a5f82622e58176"
+    },
+    {
+      "seq": 669,
+      "id": "broker-activity:48e2f5a45dc5dd8105fc83fa5bcfa7f88ef7ba4143d31863",
+      "kind": "broker_activity",
+      "created_at": "2026-10-28T19:36:52.500Z",
+      "actor": "chatgpt:zMHNC1eDbqdTs2pUnlShYCZjqMxFAYgnUcIkMrhHhthItqu2DhZmHA",
+      "payload": {
+        "broker_activity_id": "20261028153634184::f8f8ea2b-5265-4318-a805-536d12403a39",
+        "activity": {
+          "id": "20261028153634184::f8f8ea2b-5265-4318-a805-536d12403a39",
+          "activity_type": "FILL",
+          "transaction_time": "2026-10-28T19:36:34.184111Z",
+          "type": "partial_fill",
+          "price": "770.85",
+          "qty": "2",
+          "side": "buy",
+          "symbol": "SPY",
+          "leaves_qty": "25",
+          "order_id": "8bf4001c-aa02-4599-b975-e9f911ecfde9",
+          "cum_qty": "2",
+          "order_status": "partially_filled"
+        }
+      },
+      "digest": "f11d18914115469d270fd37350c55db63cdad4b1420f1a43b01713e7cd784a26"
+    },
+    {
+      "seq": 670,
+      "id": "broker-activity:eafaf9f5ab1d3847711dd088a88d43dd4188ba3bfdadbaaa",
+      "kind": "broker_activity",
+      "created_at": "2026-10-28T19:36:52.916Z",
+      "actor": "chatgpt:zMHNC1eDbqdTs2pUnlShYCZjqMxFAYgnUcIkMrhHhthItqu2DhZmHA",
+      "payload": {
+        "broker_activity_id": "20261028153634772::a18b71a3-e177-42c6-a2e1-8a13f69f21b2",
+        "activity": {
+          "id": "20261028153634772::a18b71a3-e177-42c6-a2e1-8a13f69f21b2",
+          "activity_type": "FILL",
+          "transaction_time": "2026-10-28T19:36:34.772903Z",
+          "type": "fill",
+          "price": "770.91",
+          "qty": "25",
+          "side": "buy",
+          "symbol": "SPY",
+          "leaves_qty": "0",
+          "order_id": "8bf4001c-aa02-4599-b975-e9f911ecfde9",
+          "cum_qty": "27",
+          "order_status": "filled"
+        }
+      },
+      "digest": "de05012dbbc7e9b90968503d9371df991aac8a17ec299ff07b75b65f9e42342d"
+    },
+    {
+      "seq": 671,
+      "id": "ledger-fill:7b1e64859edc7b22ced79f4cdd93ef32fdaf6cb78faadf8d",
+      "kind": "ledger_fill",
+      "created_at": "2026-10-28T19:36:54.172Z",
+      "actor": "chatgpt:zMHNC1eDbqdTs2pUnlShYCZjqMxFAYgnUcIkMrhHhthItqu2DhZmHA",
+      "payload": {
+        "broker_activity_id": "20261028153634184::f8f8ea2b-5265-4318-a805-536d12403a39",
+        "raw_event_id": "broker-activity:48e2f5a45dc5dd8105fc83fa5bcfa7f88ef7ba4143d31863",
+        "intent_id": "order-intent:3d5c2cb4d5fbe5b381eab8336f22917b1161cc55",
+        "order_id": "8bf4001c-aa02-4599-b975-e9f911ecfde9",
+        "fill": {
+          "id": "alpaca-fill:20261028153634184::f8f8ea2b-5265-4318-a805-536d12403a39",
+          "symbol": "SPY",
+          "side": "buy",
+          "quantity": 2,
+          "quantity_text": "2",
+          "price_text": "770.85",
+          "fee_cents": 0,
+          "fee_basis": "Zero modeled paper fill fees; regulatory fees are unsupported.",
+          "occurred_at": "2026-10-28T19:36:34.184111Z",
+          "observed_at": "2026-10-28T19:36:52.500Z"
+        }
+      },
+      "digest": "7fe1fa0340436ca99eb30c6e317156bedd70f068f9b4a959523363f8f0a6df7d"
+    },
+    {
+      "seq": 672,
+      "id": "ledger-fill:c5a98e0712e3ca59e9a8df8cca396e12b021ae5f45b6c894",
+      "kind": "ledger_fill",
+      "created_at": "2026-10-28T19:36:54.647Z",
+      "actor": "chatgpt:zMHNC1eDbqdTs2pUnlShYCZjqMxFAYgnUcIkMrhHhthItqu2DhZmHA",
+      "payload": {
+        "broker_activity_id": "20261028153634772::a18b71a3-e177-42c6-a2e1-8a13f69f21b2",
+        "raw_event_id": "broker-activity:eafaf9f5ab1d3847711dd088a88d43dd4188ba3bfdadbaaa",
+        "intent_id": "order-intent:3d5c2cb4d5fbe5b381eab8336f22917b1161cc55",
+        "order_id": "8bf4001c-aa02-4599-b975-e9f911ecfde9",
+        "fill": {
+          "id": "alpaca-fill:20261028153634772::a18b71a3-e177-42c6-a2e1-8a13f69f21b2",
+          "symbol": "SPY",
+          "side": "buy",
+          "quantity": 25,
+          "quantity_text": "25",
+          "price_text": "770.91",
+          "fee_cents": 0,
+          "fee_basis": "Zero modeled paper fill fees; regulatory fees are unsupported.",
+          "occurred_at": "2026-10-28T19:36:34.772903Z",
+          "observed_at": "2026-10-28T19:36:52.916Z"
+        }
+      },
+      "digest": "6b558e4f3bbb677e5c8003914c6c0bdabc0eb447235b3456f2bd24de4563ddec"
+    },
+    {
+      "seq": 673,
+      "id": "order-closed:5ac95b61d8da318e31842a91a5098c7f9e5a46593f207b63",
+      "kind": "order_closed",
+      "created_at": "2026-10-28T19:36:54.886Z",
+      "actor": "chatgpt:zMHNC1eDbqdTs2pUnlShYCZjqMxFAYgnUcIkMrhHhthItqu2DhZmHA",
+      "payload": {
+        "intent_id": "order-intent:3d5c2cb4d5fbe5b381eab8336f22917b1161cc55",
+        "order_id": "8bf4001c-aa02-4599-b975-e9f911ecfde9",
+        "client_order_id": "blue-3d5c2cb4d5fbe5b381eab8336f22917b1161cc55",
+        "status": "filled",
+        "filled_qty": "27",
+        "accounted_quantity": "27",
+        "order": {
+          "id": "8bf4001c-aa02-4599-b975-e9f911ecfde9",
+          "client_order_id": "blue-3d5c2cb4d5fbe5b381eab8336f22917b1161cc55",
+          "created_at": "2026-10-28T19:36:33.458414125Z",
+          "updated_at": "2026-10-28T19:36:34.774569937Z",
+          "submitted_at": "2026-10-28T19:36:33.463939259Z",
+          "filled_at": "2026-10-28T19:36:34.772902916Z",
+          "expired_at": null,
+          "canceled_at": null,
+          "failed_at": null,
+          "replaced_at": null,
+          "replaced_by": null,
+          "replaces": null,
+          "asset_id": "b28f4066-5c6d-479b-a2af-85dc1a8f16fb",
+          "symbol": "SPY",
+          "asset_class": "us_equity",
+          "notional": null,
+          "qty": "27",
+          "filled_qty": "27",
+          "filled_avg_price": "770.905556",
+          "order_class": "",
+          "order_type": "limit",
+          "type": "limit",
+          "side": "buy",
+          "position_intent": "buy_to_open",
+          "time_in_force": "day",
+          "limit_price": "772",
+          "stop_price": null,
+          "status": "filled",
+          "extended_hours": false,
+          "legs": null,
+          "trail_percent": null,
+          "trail_price": null,
+          "hwm": null,
+          "subtag": null,
+          "source": null,
+          "expires_at": "2026-10-28T20:00:00Z"
+        }
+      },
+      "digest": "e5a312e063e46d0ad545d93522524a449777ddde326600af08bfe2bd346aa48f"
+    },
+    {
+      "seq": 674,
+      "id": "reconciliation:0db745c625023f342768e72b75cdb5f7be88938ea01ba919",
+      "kind": "reconciliation",
+      "created_at": "2026-10-28T19:36:55.427Z",
+      "actor": "chatgpt:zMHNC1eDbqdTs2pUnlShYCZjqMxFAYgnUcIkMrhHhthItqu2DhZmHA",
+      "payload": {
+        "status": "blocked",
+        "trading_permitted": false,
+        "activity_count": 12,
+        "new_fills": 2,
+        "orders_closed": 1,
+        "ledger_status": "ready",
+        "ledger_cash_cents": 4354618,
+        "ledger_cash_nanos": "43546180000000",
+        "accounting_policy": "usd-nano-v1",
+        "problems": [
+          {
+            "code": "basis_mismatch",
+            "message": "Broker basis differs from documented receipt-derived intraday/BOD projections.",
+            "broker_basis_comparison": {
+              "matched": false,
+              "policy": "alpaca-daily-compressed-fifo-v1",
+              "as_of": "2026-10-28T19:36:55.028Z",
+              "candidates": [
+                {
+                  "phase": "after_bod",
+                  "matched": false,
+                  "checks": [
+                    {
+                      "symbol": "JPM",
+                      "quantity": 35,
+                      "matched": true,
+                      "policy": "exact-nano-dollar",
+                      "raw": "11871.3",
+                      "precision": 2,
+                      "expected_display": "11871.30",
+                      "exact_nanos": {
+                        "numerator": "11871300000000",
+                        "denominator": "1"
+                      },
+                      "quantity_matches": true
+                    },
+                    {
+                      "symbol": "SOFI",
+                      "quantity": 701,
+                      "matched": true,
+                      "policy": "exact-nano-dollar",
+                      "raw": "11973.08",
+                      "precision": 2,
+                      "expected_display": "11973.08",
+                      "exact_nanos": {
+                        "numerator": "11973080000000",
+                        "denominator": "1"
+                      },
+                      "quantity_matches": true
+                    },
+                    {
+                      "symbol": "SPY",
+                      "quantity": 32,
+                      "matched": false,
+                      "policy": "exact-nano-dollar",
+                      "raw": "24654.430016",
+                      "precision": 6,
+                      "expected_display": "24654.430000",
+                      "exact_nanos": {
+                        "numerator": "24654430000000",
+                        "denominator": "1"
+                      },
+                      "quantity_matches": true
+                    },
+                    {
+                      "symbol": "TOST",
+                      "quantity": 250,
+                      "matched": true,
+                      "policy": "exact-nano-dollar",
+                      "raw": "7955",
+                      "precision": 2,
+                      "expected_display": "7955.00",
+                      "exact_nanos": {
+                        "numerator": "7955000000000",
+                        "denominator": "1"
+                      },
+                      "quantity_matches": true
+                    }
+                  ]
+                }
+              ],
+              "problem": null
+            },
+            "analytical_basis_preserved": true
+          }
+        ],
+        "broker_basis_comparison": {
+          "matched": false,
+          "policy": "alpaca-daily-compressed-fifo-v1",
+          "as_of": "2026-10-28T19:36:55.028Z",
+          "candidates": [
+            {
+              "phase": "after_bod",
+              "matched": false,
+              "checks": [
+                {
+                  "symbol": "JPM",
+                  "quantity": 35,
+                  "matched": true,
+                  "policy": "exact-nano-dollar",
+                  "raw": "11871.3",
+                  "precision": 2,
+                  "expected_display": "11871.30",
+                  "exact_nanos": {
+                    "numerator": "11871300000000",
+                    "denominator": "1"
+                  },
+                  "quantity_matches": true
+                },
+                {
+                  "symbol": "SOFI",
+                  "quantity": 701,
+                  "matched": true,
+                  "policy": "exact-nano-dollar",
+                  "raw": "11973.08",
+                  "precision": 2,
+                  "expected_display": "11973.08",
+                  "exact_nanos": {
+                    "numerator": "11973080000000",
+                    "denominator": "1"
+                  },
+                  "quantity_matches": true
+                },
+                {
+                  "symbol": "SPY",
+                  "quantity": 32,
+                  "matched": false,
+                  "policy": "exact-nano-dollar",
+                  "raw": "24654.430016",
+                  "precision": 6,
+                  "expected_display": "24654.430000",
+                  "exact_nanos": {
+                    "numerator": "24654430000000",
+                    "denominator": "1"
+                  },
+                  "quantity_matches": true
+                },
+                {
+                  "symbol": "TOST",
+                  "quantity": 250,
+                  "matched": true,
+                  "policy": "exact-nano-dollar",
+                  "raw": "7955",
+                  "precision": 2,
+                  "expected_display": "7955.00",
+                  "exact_nanos": {
+                    "numerator": "7955000000000",
+                    "denominator": "1"
+                  },
+                  "quantity_matches": true
+                }
+              ]
+            }
+          ],
+          "problem": null
+        },
+        "analytical_basis_method": "weighted-average; unchanged",
+        "source": "Alpaca paper API",
+        "retrieved_at": "2026-10-28T19:36:55.333Z",
+        "scope": "Broker transport reconciles FILL activities, known orders, cash and quantities (plus separately projected Alpaca intraday/compressed-FIFO basis under usd-nano-v1). Shared reviewed ordinary distributions/splits replay separately; modeled income never changes broker cash. Unsupported actions, fees and unexplained cash/basis differences block."
+      },
+      "digest": "9d7954b42295aa1952a9e47da2c1a9098afacb47eae66cac0e8938c2f9ea25b8"
+    }
+  ]
+}

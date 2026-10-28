@@ -39,3 +39,36 @@ Public state exposes exact cash, value, economic-value and basis strings. Dollar
 Compare broker decimal cash and basis with exact ledger values. There is no permitted cash tolerance, automatic rounding fee, balance reset or inferred normalization. A cash/basis mismatch reports both exact amounts and `unexplained_difference_nanos`, defined as broker minus ledger. Preserve the fill and raw receipts; block further execution pending actual explanation. A one-nano difference remains an unexplained difference, not a manufactured correction.
 
 An authenticated nonzero fill and corresponding cash/basis observations are still needed to verify this particular paper account's treatment. Synthetic tests prove implementation behavior only. Alpaca's [account-activity documentation](https://docs.alpaca.markets/us/docs/account-activities) identifies executed price/quantity and nontrade net amounts, but does not establish a universal round-to-cent rule for this reconciliation. Its [paper-trading specification](https://docs.alpaca.markets/us/docs/paper-trading) excludes simulated dividends. Neither document authorizes ignoring unexplained discrepancies.
+
+## SPY basis evidence gap — 28 October 2026
+
+Actual reconciliation seq674 reports cash43546.18 matching exactly, but 32SPY
+shares have raw broker basis24654.430016 versus receipt-derived exact24654.43.
+Original five-share basis3839.98 plus actual fills2×770.85 and25×770.91 total
+24654.43. The difference is exactly0.000016USD (16000 nano-dollars).
+
+An arithmetic hypothesis fits: exact position average770.4509375, rounded half-up
+to six decimal places, is770.450938; multiplying by32 gives24654.430016. This is
+not an observed average-entry-price receipt or a proven broker rounding policy.
+The retained order average770.905556 belongs to the new27-share order, not the
+entire32-share position.
+
+Alpaca's official position-average-entry-price calculation documentation explains
+weighted average and compressed FIFO and expresses average as cost_basis/quantity.
+It does not establish six-decimal rounding or a tolerance contract:
+https://docs.alpaca.markets/us/docs/position-average-entry-price-calculation .
+Do not infer one merely from this numerical fit.
+
+The diagnostic source addition retains the unmodified /v2/positions response
+inside each new reconciliation receipt as broker_positions, with source URL and
+retrieval/observation timestamps; already-acquired evidence also survives a later
+reconciliation processing error when its blocked receipt can be persisted.
+Both ordinary and managed snapshots retain optional avg_entry_price_text exactly
+as reported. No new endpoint, credential, order or accounting operation is added.
+Existing immutable receipts cannot be retroactively populated.
+
+Strict comparison still rejects this discrepancy. Exact analytical cash/basis,
+prior history and execution guards are unchanged. Parent-reviewed publication
+and a fresh GET-only reconciliation are required to obtain the missing raw
+position average. Any later representation handling needs explicit evidence and
+review; this diagnostic change does not resolve or authorize ignoring the mismatch.
