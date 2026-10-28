@@ -348,3 +348,9 @@ test('managed standing authority displays closed session separately from blocked
  const html=readFileSync(new URL('../web/index.html',import.meta.url),'utf8');
  const before=html.slice(0,html.indexOf('id="performance-chart"'));assert.equal((before.match(/<details[ >]/g)||[]).length,(before.match(/<\/details>/g)||[]).length);
 });
+
+test('actual broker fees are plainly disclosed as expenses rather than hidden rounding',()=>{
+ const view=ui();view.renderState({experiment:{started_at:'2026-10-27T13:31:45.975Z',status:'active'},portfolio:{value:100000.01,cash:96160.01,gain:0.01,fees:0.01,total_return:0.0000001}});
+ assert.match(view.get('#capital-context').textContent,/Broker fees paid: \$0\.01; deducted from cash and returns/);
+ assert.match(view.get('#capital-context').textContent,/SPY comparator has no inferred fee/);
+});

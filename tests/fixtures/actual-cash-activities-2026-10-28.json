@@ -1,0 +1,116 @@
+{
+  "records": [
+    {
+      "seq": 474,
+      "id": "blue-cash-diagnostic-2026-10-28-01",
+      "kind": "cash_activity_scan",
+      "created_at": "2026-10-28T14:19:49.429Z",
+      "actor": "chatgpt:zMHNC1eDbqdTs2pUnlShYCZjqMxFAYgnUcIkMrhHhthItqu2DhZmHA",
+      "payload": {
+        "operation": "collect_cash_activities",
+        "mandate_id": "blue-managed-mandate-2026-10-27",
+        "until": "2026-10-28T14:19:49.377Z",
+        "source": "https://paper-api.alpaca.markets/v2/account/activities",
+        "scope": "All available activity types and dates through server cutoff, including pre-inception records; no accounting or order permission.",
+        "limits": {
+          "page_size": 100,
+          "max_pages": 20,
+          "page_bytes": 262144,
+          "total_bytes": 2097152
+        },
+        "complete": false,
+        "trading_permitted": false
+      },
+      "digest": "839a3d77f9d51a004b7d28680ada3d3e8474756145f38d3baeb857af22a8da7c"
+    },
+    {
+      "seq": 475,
+      "id": "cash-page:8aecf9613cd4988779fade3a47c2660b2601d0a4c53aa683",
+      "kind": "cash_activity_page",
+      "created_at": "2026-10-28T14:19:49.779Z",
+      "actor": "chatgpt:zMHNC1eDbqdTs2pUnlShYCZjqMxFAYgnUcIkMrhHhthItqu2DhZmHA",
+      "payload": {
+        "scan_id": "blue-cash-diagnostic-2026-10-28-01",
+        "page": 0,
+        "source_url": "https://paper-api.alpaca.markets/v2/account/activities?direction=asc&page_size=100&until=2026-10-28T14%3A19%3A49.377Z",
+        "retrieval_started_at": "2026-10-28T14:19:49.480Z",
+        "observed_at": "2026-10-28T14:19:49.741Z",
+        "activities": [
+          {
+            "id": "20261027000000000::b01310de-3304-4afa-8d0a-2f88bdbaf827",
+            "activity_type": "FEE",
+            "activity_sub_type": "CAT",
+            "date": "2026-10-27",
+            "created_at": "2026-10-28T00:05:41.098188Z",
+            "net_amount": "-0.01",
+            "description": "CAT fee for proceed of 2 trades on 2026-10-27 by PA37MTJCO",
+            "status": "executed",
+            "currency": "USD"
+          },
+          {
+            "id": "20261027000000000::bbdb03cf-acac-4d9e-b9dd-0fc1ab96b9d8",
+            "activity_type": "JNLC",
+            "date": "2026-10-27",
+            "created_at": "2026-10-27T03:24:50.454277Z",
+            "net_amount": "100000",
+            "description": "",
+            "status": "executed",
+            "currency": "USD"
+          },
+          {
+            "id": "20261027093240269::eeda4910-fd79-4220-8504-858a9c785407",
+            "activity_type": "FILL",
+            "transaction_time": "2026-10-27T13:32:40.269422Z",
+            "type": "fill",
+            "price": "767.5",
+            "qty": "1",
+            "side": "buy",
+            "symbol": "SPY",
+            "leaves_qty": "0",
+            "order_id": "f682d81b-da74-4fa3-836f-81f581857f19",
+            "cum_qty": "1",
+            "order_status": "filled"
+          },
+          {
+            "id": "20261027093931587::680c6db8-2a15-4857-8ec6-e7740e291cba",
+            "activity_type": "FILL",
+            "transaction_time": "2026-10-27T13:39:31.58794Z",
+            "type": "fill",
+            "price": "768.12",
+            "qty": "4",
+            "side": "buy",
+            "symbol": "SPY",
+            "leaves_qty": "0",
+            "order_id": "4da99d9e-c7c7-4a19-ab85-a9212429c96b",
+            "cum_qty": "4",
+            "order_status": "filled"
+          }
+        ]
+      },
+      "digest": "54b7992f20b54d7ac4a37af3f1cf86087c5b2c8de177e80221bda67d2fcdcf40"
+    },
+    {
+      "seq": 476,
+      "id": "cash-result:24edee7c5fad4c0f39b71d337c428928d6ee0499b8b94ef6",
+      "kind": "cash_activity_result",
+      "created_at": "2026-10-28T14:19:49.873Z",
+      "actor": "chatgpt:zMHNC1eDbqdTs2pUnlShYCZjqMxFAYgnUcIkMrhHhthItqu2DhZmHA",
+      "payload": {
+        "scan_id": "blue-cash-diagnostic-2026-10-28-01",
+        "complete": true,
+        "trading_permitted": false,
+        "until": "2026-10-28T14:19:49.377Z",
+        "page_ids": [
+          "cash-page:8aecf9613cd4988779fade3a47c2660b2601d0a4c53aa683"
+        ],
+        "activity_count": 4,
+        "non_fill_count": 2,
+        "bytes": 1157,
+        "status": "evidence_only",
+        "scope": "Complete bounded broker response through cutoff, not reconciliation or fee approval. Raw timestamps and amounts retained; cash unchanged."
+      },
+      "digest": "3c3ebb631f10c957feebbd68d08fe9c5e761f7ccdae154af038719984e79ce0d"
+    }
+  ],
+  "next_after_seq": 476
+}

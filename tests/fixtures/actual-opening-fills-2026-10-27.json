@@ -1,0 +1,159 @@
+{
+  "scope": "Original native immutable opening and raw/ledger fill receipts; extracted for isolated regression, not a complete managed journal.",
+  "records": [
+    {
+      "seq": 168,
+      "id": "experiment-opening:c6acaf7245b8041a3c0b6d70ef0ab11dff3a179c",
+      "kind": "experiment_opened",
+      "created_at": "2026-10-27T13:31:45.975Z",
+      "actor": "chatgpt:zMHNC1eDbqdTs2pUnlShYCZjqMxFAYgnUcIkMrhHhthItqu2DhZmHA",
+      "payload": {
+        "accounting_policy": "usd-nano-v1",
+        "started_at": "2026-10-27T13:31:45.975Z",
+        "initial_cash_cents": 10000000,
+        "snapshot_id": "activation-snapshot:a5bc2fb4-9b63-4750-b900-277b8ad9f4e9",
+        "benchmark": {
+          "cash_cents": 21200,
+          "holdings": {
+            "SPY": {
+              "quantity": 130,
+              "cost_nanos": "99788000000000",
+              "cost_cents": 9978800
+            }
+          },
+          "realized_pnl_cents": 0,
+          "income_cents": 0,
+          "fees_cents": 0,
+          "events": [],
+          "accounting_policy": "usd-nano-v1",
+          "cash_nanos": "212000000000",
+          "realized_pnl_nanos": "0",
+          "income_nanos": "0",
+          "fees_nanos": "0",
+          "started_at": "2026-10-27T13:31:45.975Z",
+          "observed_at": "2026-10-27T13:31:44.186Z",
+          "market_time": "2026-10-27T13:31:43.948610848Z",
+          "reference_price_text": "767.6",
+          "source": "Alpaca IEX",
+          "execution": "analytical reference at observed price; not an Alpaca fill"
+        },
+        "costs": "Zero modeled paper commissions; external fees and distributions require separate reconciliation.",
+        "corporate_action_support": "reviewed-ordinary-cash-and-whole-splits-v1",
+        "activation_key": "blue-spy-pilot-inception-2026-10-27",
+        "control": {
+          "status": "validation_pending",
+          "started_at": "2026-10-27T13:31:45.975Z",
+          "release_revision": "13db0932c045c7608a46905dc2c6bd4a0bb4e42b",
+          "validation_protocol_id": "blue-spy-pilot-protocol-2026-10-27",
+          "submission_valid_until": "2026-10-27T20:00:00.000Z",
+          "approval_id": "blue-spy-pilot-protocol-2026-10-27",
+          "verification_id": "blue-spy-pilot-release-2026-10-27",
+          "general_trading_enabled": false
+        }
+      },
+      "digest": "6d4eb5d6fce341d4c585ae14cc0ae069726de2c0ddc4642dd1e8325b12987cce"
+    },
+    {
+      "seq": 175,
+      "id": "broker-activity:493df98b68200dd1555cbc8dca889c7561efa0099b7eb183",
+      "kind": "broker_activity",
+      "created_at": "2026-10-27T13:33:07.307Z",
+      "actor": "chatgpt:zMHNC1eDbqdTs2pUnlShYCZjqMxFAYgnUcIkMrhHhthItqu2DhZmHA",
+      "payload": {
+        "broker_activity_id": "20261027093240269::eeda4910-fd79-4220-8504-858a9c785407",
+        "activity": {
+          "id": "20261027093240269::eeda4910-fd79-4220-8504-858a9c785407",
+          "activity_type": "FILL",
+          "transaction_time": "2026-10-27T13:32:40.269422Z",
+          "type": "fill",
+          "price": "767.5",
+          "qty": "1",
+          "side": "buy",
+          "symbol": "SPY",
+          "leaves_qty": "0",
+          "order_id": "f682d81b-da74-4fa3-836f-81f581857f19",
+          "cum_qty": "1",
+          "order_status": "filled"
+        }
+      },
+      "digest": "d907f27641115825acf543de7673edc3806a38a1677b00fed079ab2565bfe4fe"
+    },
+    {
+      "seq": 176,
+      "id": "ledger-fill:138eebb2fc750500e213c2c903943cc4df1d647384f0b777",
+      "kind": "ledger_fill",
+      "created_at": "2026-10-27T13:33:07.713Z",
+      "actor": "chatgpt:zMHNC1eDbqdTs2pUnlShYCZjqMxFAYgnUcIkMrhHhthItqu2DhZmHA",
+      "payload": {
+        "broker_activity_id": "20261027093240269::eeda4910-fd79-4220-8504-858a9c785407",
+        "raw_event_id": "broker-activity:493df98b68200dd1555cbc8dca889c7561efa0099b7eb183",
+        "intent_id": "order-intent:f628f805ef05f290519aa471623b35e1525e9383",
+        "order_id": "f682d81b-da74-4fa3-836f-81f581857f19",
+        "fill": {
+          "id": "alpaca-fill:20261027093240269::eeda4910-fd79-4220-8504-858a9c785407",
+          "symbol": "SPY",
+          "side": "buy",
+          "quantity": 1,
+          "quantity_text": "1",
+          "price_text": "767.5",
+          "fee_cents": 0,
+          "fee_basis": "Zero modeled paper fill fees; regulatory fees are unsupported.",
+          "occurred_at": "2026-10-27T13:32:40.269422Z",
+          "observed_at": "2026-10-27T13:33:07.307Z"
+        }
+      },
+      "digest": "3282ff1d3a1f80e073763a8f3056137d80d08fc0439add5ffc77ae4c94c5a0d2"
+    },
+    {
+      "seq": 200,
+      "id": "broker-activity:58da90cbde98f8e8dfc83665d68a9374c81412bb6b1e4336",
+      "kind": "broker_activity",
+      "created_at": "2026-10-27T13:39:58.114Z",
+      "actor": "chatgpt:zMHNC1eDbqdTs2pUnlShYCZjqMxFAYgnUcIkMrhHhthItqu2DhZmHA",
+      "payload": {
+        "broker_activity_id": "20261027093931587::680c6db8-2a15-4857-8ec6-e7740e291cba",
+        "activity": {
+          "id": "20261027093931587::680c6db8-2a15-4857-8ec6-e7740e291cba",
+          "activity_type": "FILL",
+          "transaction_time": "2026-10-27T13:39:31.58794Z",
+          "type": "fill",
+          "price": "768.12",
+          "qty": "4",
+          "side": "buy",
+          "symbol": "SPY",
+          "leaves_qty": "0",
+          "order_id": "4da99d9e-c7c7-4a19-ab85-a9212429c96b",
+          "cum_qty": "4",
+          "order_status": "filled"
+        }
+      },
+      "digest": "2519ec9a83d23bd10dfbc4e557b338ce9bc27e46aecf1f24d8fc12b389e33dcb"
+    },
+    {
+      "seq": 201,
+      "id": "ledger-fill:9509ab79c5d63f408c9cf47b33c1fe25252013ce65949d1f",
+      "kind": "ledger_fill",
+      "created_at": "2026-10-27T13:39:58.446Z",
+      "actor": "chatgpt:zMHNC1eDbqdTs2pUnlShYCZjqMxFAYgnUcIkMrhHhthItqu2DhZmHA",
+      "payload": {
+        "broker_activity_id": "20261027093931587::680c6db8-2a15-4857-8ec6-e7740e291cba",
+        "raw_event_id": "broker-activity:58da90cbde98f8e8dfc83665d68a9374c81412bb6b1e4336",
+        "intent_id": "order-intent:2d8216af7682b27c2ca0d5c8dbbf564911d709da",
+        "order_id": "4da99d9e-c7c7-4a19-ab85-a9212429c96b",
+        "fill": {
+          "id": "alpaca-fill:20261027093931587::680c6db8-2a15-4857-8ec6-e7740e291cba",
+          "symbol": "SPY",
+          "side": "buy",
+          "quantity": 4,
+          "quantity_text": "4",
+          "price_text": "768.12",
+          "fee_cents": 0,
+          "fee_basis": "Zero modeled paper fill fees; regulatory fees are unsupported.",
+          "occurred_at": "2026-10-27T13:39:31.58794Z",
+          "observed_at": "2026-10-27T13:39:58.114Z"
+        }
+      },
+      "digest": "7bed8dc29b15a55f46f34f415deca7b69a327865ad7543a30aa8e12fd2664b76"
+    }
+  ]
+}

@@ -103,3 +103,43 @@ This diagnostic implementation does not identify its cause. Actual non-fill
 receipts require parent-reviewed publication and a subsequent native scan.
 No deployment, enablement, source review attestation or actual fee is implied by
 these instructions or synthetic tests.
+
+## Evidenced CAT expense and original funding — 28 October 2026
+
+This narrowly supported accounting extension supersedes the diagnostic-only
+non-fill blocker above for two validated cases. Acquisition still writes only raw
+receipts; deterministic replay now interprets supported evidence. No arbitrary
+cash adjustment or cent tolerance is available.
+
+An executed USD `FEE` with `activity_sub_type: CAT`, a strictly negative exact
+nano-representable amount and valid post-inception broker timestamps becomes an
+active-portfolio expense exactly once per broker activity ID. It reduces physical
+cash and realized P&L and increases fees; it never changes share basis or income.
+The actual raw economic `date` is preserved. Broker `created_at` orders the
+chronological replay; it is not asserted to be the instant broker cash changed.
+Knowledge begins only once the immutable acquisition has a validated complete
+result. Earlier receipt-time replay remains unchanged. Fee event output binds the
+raw page, completion receipt, original amount and original timestamps.
+
+A single executed USD `JNLC` identity for exactly the original $100,000, created
+before the preserved inception, is recognized as already included in the original
+opening. It binds that opening and digest, adds no cash/income and does not restart
+the experiment. Different, duplicate-identity funding, post-inception cash flows,
+unknown types/subtypes, unreviewed fields, reversals, contradictory versions,
+missing later history and incomplete/invalid acquisition remain blockers. A new
+valid CAT activity is a new expense; repeated identical scans are not.
+
+The active portfolio's actual expense reduces NAV and returns. The original SPY
+analytical comparator is preserved: no unevidenced hypothetical fee is charged
+to it. The Site plainly reports actual fees deducted from active cash/returns and
+this comparator cost difference. Both legacy and managed callers use the same
+shared economic replay; standalone fee support requires the original opening's
+`usd-nano-v1` accounting policy.
+
+Actual evidence: native seq475 contains an executed USD CAT fee `-0.01`, economic
+date2026-10-27, broker creation2026-10-28T00:05:41.098188Z, observed at
+2026-10-28T14:19:49.741Z; seq476 completes its scan. It also contains the original
+pre-inception funding and two SPY fills. Isolated regression uses these immutable
+receipts and the actual original opening/fill receipts, verifies their hashes,
+and derives cash96160.01, fees0.01 and unchanged basis3839.98. Production adoption,
+new broker reconciliation and order authorization are separate parent-owned steps.

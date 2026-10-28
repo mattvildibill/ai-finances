@@ -37,7 +37,7 @@ test('empty complete collection is evidence only; missing or changed non-fill re
  const db=await setup(t);await collectCashActivities(db,env,{idempotency_key:'synthetic-first-cash'},actor,broker([[fee]]).fetcher);
  await collectCashActivities(db,env,{idempotency_key:'synthetic-changed-cash'},actor,broker([[{...fee,net_amount:'-0.02'}]]).fetcher);
  const r=await collectCashActivities(db,env,{idempotency_key:'synthetic-empty-cash'},actor,broker([[]]).fetcher);assert.equal(r.payload.complete,true);
- const events=await readCompleteHistory(db);assert.equal(cashActivityProblems(events).filter(p=>p.code==='cash_activity_unresolved').length,2);assert.equal(rebuildLedger(events).portfolio.cash_nanos,'100000000000000');
+ const events=await readCompleteHistory(db);assert.ok(cashActivityProblems(events).some(p=>p.code==='cash_activity_changed'));assert.ok(cashActivityProblems(events).some(p=>p.code==='cash_activity_missing'));assert.equal(rebuildLedger(events).portfolio.cash_nanos,'100000000000000');
 });
 
 test('malformed, duplicate and looping pages preserve available evidence and cannot claim completion',async t=>{
@@ -82,7 +82,7 @@ test('collected fills must match retained broker evidence; later old fill respon
   await collectCashActivities(db,env,{idempotency_key:'synthetic-changed-fill-'+label},actor,broker([[{...raw,...delta}]]).fetcher);
  }
  await collectCashActivities(db,env,{idempotency_key:'synthetic-original-fill-again'},actor,broker([[raw]]).fetcher);
- assert.equal(cashActivityProblems(await readCompleteHistory(db)).filter(p=>p.code==='cash_activity_unresolved').length,3);
+ assert.equal(cashActivityProblems(await readCompleteHistory(db)).filter(p=>p.code==='cash_activity_unresolved').length,2);assert.ok(cashActivityProblems(await readCompleteHistory(db)).some(p=>p.code==='cash_activity_changed'));
 });
 
 test('aggregate response bytes and transport failures stay bounded and redact runtime secrets',async t=>{
