@@ -10,3 +10,4 @@ export const events = sqliteTable('events', {
  digest: text('digest').notNull(),
 }, t=>[uniqueIndex('events_id_unique').on(t.id),uniqueIndex('events_single_inception').on(t.kind).where(sql`${t.kind} = 'experiment_opened'`),uniqueIndex('events_single_validation_protocol').on(t.kind).where(sql`${t.kind} = 'validation_protocol'`),uniqueIndex('events_single_validation_intent').on(t.kind).where(sql`${t.kind} = 'order_intent' AND json_extract(${t.payload}, '$.validation_protocol_id') IS NOT NULL`)]);
 export const locks = sqliteTable('locks', {name:text('name').primaryKey(), token:text('token').notNull(), expires_at:text('expires_at').notNull()});
+export const displayCache = sqliteTable('display_cache', {name:text('name').primaryKey(),payload:text('payload'),token:text('token'),next_fetch_at:integer('next_fetch_at').notNull(),error:text('error')});

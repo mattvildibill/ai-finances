@@ -1,0 +1,218 @@
+{
+  "source_record_id": "d74ba342-921e-48a5-b4f8-75b8c461b7f2",
+  "source_digest": "2ac6cfab0174db6405b3d6e03e2ad83b323e742824b877a6e11c4818e6df371f",
+  "retrieved_at": "2026-10-29T01:56:56.277Z",
+  "account": {
+    "cash": 43546.18,
+    "equity": 99783.48
+  },
+  "positions": [
+    {
+      "symbol": "JPM",
+      "quantity": 35,
+      "side": "long",
+      "cost_basis": 11871.3,
+      "cost_basis_text": "11871.3",
+      "avg_entry_price_text": "339.18",
+      "market_value": 12001.5,
+      "market_value_text": "12001.5",
+      "unrealized_pl": 130.2
+    },
+    {
+      "symbol": "SOFI",
+      "quantity": 701,
+      "side": "long",
+      "cost_basis": 11973.08,
+      "cost_basis_text": "11973.08",
+      "avg_entry_price_text": "17.08",
+      "market_value": 11790.82,
+      "market_value_text": "11790.82",
+      "unrealized_pl": -182.26
+    },
+    {
+      "symbol": "SPY",
+      "quantity": 32,
+      "side": "long",
+      "cost_basis": 24654.430016,
+      "cost_basis_text": "24654.430016",
+      "avg_entry_price_text": "770.450938",
+      "market_value": 24612.48,
+      "market_value_text": "24612.48",
+      "unrealized_pl": -41.950016
+    },
+    {
+      "symbol": "TOST",
+      "quantity": 250,
+      "side": "long",
+      "cost_basis": 7955,
+      "cost_basis_text": "7955",
+      "avg_entry_price_text": "31.82",
+      "market_value": 7832.5,
+      "market_value_text": "7832.5",
+      "unrealized_pl": -122.5
+    }
+  ],
+  "quotes": {
+    "SPY": {
+      "symbol": "SPY",
+      "price": 769.8,
+      "price_text": "769.8",
+      "market_data_at": "2026-10-28T20:54:40.57603901Z",
+      "feed": "iex",
+      "source": "Alpaca",
+      "retrieved_at": "2026-10-29T01:56:56.277Z",
+      "exchange": "V",
+      "age_seconds": 18135.701
+    },
+    "SOFI": {
+      "symbol": "SOFI",
+      "price": 17.13,
+      "price_text": "17.13",
+      "market_data_at": "2026-10-28T19:59:59.901237331Z",
+      "feed": "iex",
+      "source": "Alpaca",
+      "retrieved_at": "2026-10-29T01:56:56.277Z",
+      "exchange": "V",
+      "age_seconds": 21416.376
+    },
+    "TOST": {
+      "symbol": "TOST",
+      "price": 31.945,
+      "price_text": "31.945",
+      "market_data_at": "2026-10-28T19:59:56.435200986Z",
+      "feed": "iex",
+      "source": "Alpaca",
+      "retrieved_at": "2026-10-29T01:56:56.277Z",
+      "exchange": "V",
+      "age_seconds": 21419.842
+    },
+    "JPM": {
+      "symbol": "JPM",
+      "price": 339.405,
+      "price_text": "339.405",
+      "market_data_at": "2026-10-28T19:59:52.439417464Z",
+      "feed": "iex",
+      "source": "Alpaca",
+      "retrieved_at": "2026-10-29T01:56:56.277Z",
+      "exchange": "V",
+      "age_seconds": 21423.838
+    }
+  },
+  "analytical_portfolio": {
+    "accounting_policy": "usd-nano-v1",
+    "cash_nanos": "43546180000000",
+    "realized_pnl_nanos": "-10000000",
+    "value_nanos": "100053335000000",
+    "economic_value_nanos": "100053335000000",
+    "fees": 0.01,
+    "fees_nanos": "10000000",
+    "fee_policy": "Actual broker CAT charges reduce active cash and performance. No hypothetical benchmark charge is inferred.",
+    "cash": 43546.18,
+    "value": 100053.335,
+    "holdings": [
+      {
+        "symbol": "SPY",
+        "quantity": 32,
+        "cost_basis": 24654.43,
+        "cost_nanos": "24654430000000",
+        "market_value": 24633.6,
+        "unrealized_pl": -20.83,
+        "weight": 0.24620468673033238
+      },
+      {
+        "symbol": "SOFI",
+        "quantity": 701,
+        "cost_basis": 11973.08,
+        "cost_nanos": "11973080000000",
+        "market_value": 12008.13,
+        "unrealized_pl": 35.05,
+        "weight": 0.1200172887790297
+      },
+      {
+        "symbol": "TOST",
+        "quantity": 250,
+        "cost_basis": 7955,
+        "cost_nanos": "7955000000000",
+        "market_value": 7986.25,
+        "unrealized_pl": 31.25,
+        "weight": 0.07981992804137913
+      },
+      {
+        "symbol": "JPM",
+        "quantity": 35,
+        "cost_basis": 11871.3,
+        "cost_nanos": "11871300000000",
+        "market_value": 11879.175,
+        "unrealized_pl": 7.875,
+        "weight": 0.11872842619388949
+      }
+    ],
+    "gain": 53.3350000000064,
+    "total_return": 0.000533349999999988,
+    "price_return": 0.000533349999999988,
+    "economic_value": 100053.335,
+    "modeled_income": {
+      "receivable_cents": 0,
+      "distribution_cash_cents": 0,
+      "income_cents": 0,
+      "receivable_nanos": "0",
+      "distribution_cash_nanos": "0",
+      "income_nanos": "0"
+    },
+    "basis_method": "Analytical weighted-average; broker intraday/compressed-FIFO projection is separate.",
+    "source": "Official append-only ledger",
+    "as_of": "2026-10-29T01:56:56.277Z",
+    "performance_basis": "Observed IEX marks plus reviewed modeled distributions; not official closing prices.",
+    "comparison_complete": true,
+    "valuation_status": "last_known",
+    "holdings_status": "known",
+    "observation": {
+      "snapshot_id": "d74ba342-921e-48a5-b4f8-75b8c461b7f2",
+      "snapshot_digest": "2ac6cfab0174db6405b3d6e03e2ad83b323e742824b877a6e11c4818e6df371f",
+      "reconciliation_id": "reconciliation:4f3eeb6de2601d9600223b56ca82b260aefdd6f8d4cec6a4",
+      "reconciliation_digest": "0f6451e2804945780eb9ea78ccabfde7bb6b7f623167a0abaea7e3deb4adf7b1",
+      "observed_at": "2026-10-29T01:56:56.277Z",
+      "accounting_cutoff": "2026-10-29T01:57:07.556Z",
+      "marks": [
+        {
+          "symbol": "SPY",
+          "price_text": "769.8",
+          "market_data_at": "2026-10-28T20:54:40.57603901Z",
+          "retrieved_at": "2026-10-29T01:56:56.277Z",
+          "feed": "iex",
+          "source": "Alpaca",
+          "age_seconds": 18706.795
+        },
+        {
+          "symbol": "SOFI",
+          "price_text": "17.13",
+          "market_data_at": "2026-10-28T19:59:59.901237331Z",
+          "retrieved_at": "2026-10-29T01:56:56.277Z",
+          "feed": "iex",
+          "source": "Alpaca",
+          "age_seconds": 21987.47
+        },
+        {
+          "symbol": "TOST",
+          "price_text": "31.945",
+          "market_data_at": "2026-10-28T19:59:56.435200986Z",
+          "retrieved_at": "2026-10-29T01:56:56.277Z",
+          "feed": "iex",
+          "source": "Alpaca",
+          "age_seconds": 21990.936
+        },
+        {
+          "symbol": "JPM",
+          "price_text": "339.405",
+          "market_data_at": "2026-10-28T19:59:52.439417464Z",
+          "retrieved_at": "2026-10-29T01:56:56.277Z",
+          "feed": "iex",
+          "source": "Alpaca",
+          "age_seconds": 21994.932
+        }
+      ],
+      "official_close": false,
+      "execution_authorization": false
+    }
+  }
+}

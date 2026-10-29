@@ -19,6 +19,8 @@ const byTime = (a, b) => new Date(b.created_at || b.recorded_at || 0) - new Date
 let currentState = null;
 let currentView = 'overview';
 let replayRequest = 0;
+let displayTimer=null, displayBusy=false, displayFailures=0;
+let brokerDisplay=null, chartResizeTimer=null;
 
 function showMessage(message, isError = false) {
   const element = $('#global-message');
@@ -44,6 +46,7 @@ function setView(view, updateHash = true) {
     button.classList.toggle('active', selected);
     if (selected) button.setAttribute('aria-current', 'page'); else button.removeAttribute('aria-current');
   });
+  if (typeof scheduleDisplay === 'function') scheduleDisplay(30000);
   if (updateHash) { history.replaceState(null, '', `#${view}`); const heading = $(`#view-${view} h1`); heading.setAttribute('tabindex', '-1'); heading.focus({ preventScroll: true }); }
 }
 
@@ -101,13 +104,15 @@ function renderState(state) {
   $('#operations-status').textContent = state.operation?.mode==='managed-paper' ? (state.operation.problem ? 'Needs attention' : state.operation.enabled ? (state.operation.market_session_observation?.fresh && state.operation.market_session_observation?.is_open===false ? 'Enabled · market closed' : 'Enabled · fresh trade checks required') : 'Managed trading not enabled') : !statusKnown ? 'Unverified' : state.operation?.authorization==='expired'?'Session authorization expired':state.operation?.authorization==='recorded'?'Authorization recorded · runtime checks required':paused ? 'Paused' : 'Active · paper only';
   renderMarket(state);
   renderHoldings(portfolio, started);
-  renderChart(state, started, unstarted);
   renderRisk(state, started);
   renderRecords(state);
   renderHealth(state);
   renderMandate(state.mandate || {});
+  renderBrokerDisplay(brokerDisplay);
+  $('#fee-note').textContent=numeric(portfolio.fees)?`Broker fees paid: ${money(portfolio.fees)}. Included in cash and returns; no hypothetical fee is charged to the SPY comparison.`:'';
   $('#loading').hidden = true;
   $('#app-content').hidden = false;
+  renderChart(state, started, unstarted);
 }
 
 function approvedUniverse(mandate) {
@@ -149,7 +154,7 @@ function renderHoldings(portfolio, started) {
     const marketValue = presentOrLegacy(holding.market_value, holding.value);
     const gain = presentOrLegacy(holding.unrealized_pl, holding.unrealized_gain);
     const weight = presentOrLegacy(holding.weight, knownRatio(marketValue, portfolio.value));
-    return `<tr><td><strong>${escapeHTML(holding.symbol)}</strong>${holding.symbol === 'SPY' ? '<small class="holding-description">Fund holding large US companies</small>' : ''}</td><td>${number(presentOrLegacy(holding.qty, holding.quantity), 8)}</td><td>${money(holding.cost_basis)}</td><td>${money(marketValue)}</td><td class="${Number(gain) < 0 ? 'negative' : Number(gain) > 0 ? 'positive' : ''}">${money(gain)}</td><td>${percent(weight)}</td></tr>`;
+    return `<tr><td><strong>${escapeHTML(holding.symbol)}</strong>${holding.symbol === 'SPY' ? '<small class="holding-description">Fund holding large US companies</small>' : ''}</td><td>${number(presentOrLegacy(holding.qty, holding.quantity), 8)}</td><td>${money(holding.cost_basis)}</td><td>${money(numeric(holding.current_price)?holding.current_price:(numeric(marketValue)&&Number(presentOrLegacy(holding.qty,holding.quantity))>0?Number(marketValue)/Number(presentOrLegacy(holding.qty,holding.quantity)):null))}</td><td>${money(marketValue)}</td><td class="${Number(gain) < 0 ? 'negative' : Number(gain) > 0 ? 'positive' : ''}">${money(gain)}</td><td>${percent(weight)}</td></tr>`;
   }).join('');
   $('#holdings-empty').hidden = holdings.length > 0;
   $('#holdings-empty strong').textContent = (portfolio.holdings_status === 'unknown' || !Array.isArray(portfolio.holdings)) ? 'Holdings unavailable' : 'No holdings';
@@ -160,18 +165,23 @@ function renderChart(state, started, unstarted = state.experiment?.started_at ==
   const history=state.valuation_history;
   const points=history?.schema==='observed-nav-v1'&&Array.isArray(history.points)?history.points.filter(p=>Number.isFinite(Date.parse(p.at))&&numeric(p.value)&&numeric(p.benchmark_value)&&Number(p.value)>0&&Number(p.benchmark_value)>0&&p.official_close===false&&(!Number.isFinite(Date.parse(state.as_of))||Date.parse(p.at)<=Date.parse(state.as_of))):[];
   if(!started||!points.length){
+    $('#chart-summary').textContent='';
     $('#performance-chart').innerHTML = `<div class="chart-empty"><span aria-hidden="true"></span><strong>${unstarted ? 'Not started' : 'Performance history unavailable'}</strong><p>${unstarted ? 'Awaiting inception.' : 'No verified NAV series supplied.'}</p></div>`;
     $('#chart-note').textContent = history?.reason || 'No portfolio or SPY series available.';
     return;
   }
-  const width=640,height=240,pad=35,times=points.map(p=>Date.parse(p.at)),values=points.flatMap(p=>[Number(p.value),Number(p.benchmark_value)]),lo=Math.min(...values),hi=Math.max(...values),spread=Math.max(hi-lo,1),first=Math.min(...times),last=Math.max(...times);
+  const compare=$('#compare-market').checked===true;
+  const keys=compare?['value','benchmark_value']:['value'];
+  const width=Math.min(900,Math.max(320,$('#performance-chart').clientWidth||720)),height=280,pad=65,times=points.map(p=>Date.parse(p.at)),values=[100000,...points.flatMap(p=>keys.map(key=>Number(p[key])))],lo=Math.min(...values),hi=Math.max(...values),spread=Math.max(hi-lo,1),first=Math.min(...times),last=Math.max(...times);
+  const axisTime=t=>width<560?new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',month:'short',day:'numeric'}).format(new Date(t)):formatTime(new Date(t).toISOString(),true);
   const x=t=>pad+(width-2*pad)*(last===first?.5:(t-first)/(last-first));
   const y=v=>height-pad-(height-2*pad)*(v-lo+spread*.08)/(spread*1.16);
-  const dots=points.map(p=>['value','benchmark_value'].map((key,i)=>`<circle cx="${x(Date.parse(p.at)).toFixed(2)}" cy="${y(Number(p[key])).toFixed(2)}" r="3.5" fill="${i?'#947338':'#164f78'}"><title>${escapeHTML(i?'SPY comparator':'Blue')}: ${escapeHTML(money(p[key]))} · ${escapeHTML(formatTime(p.at))} · ${escapeHTML(p.snapshot_id)}${p.valuation_status==='last_known'?' · Last-known mark':''}</title></circle>`).join('')).join('');
-  $('#performance-chart').innerHTML=`<svg class="observed-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="Observed Blue and SPY portfolio values. Separate dots, not official daily closes."><line x1="${pad}" y1="${height-pad}" x2="${width-pad}" y2="${height-pad}" stroke="#bdc5c6"/><text x="${pad}" y="16">${escapeHTML(money(hi))}</text><text x="${pad}" y="${height-5}">${escapeHTML(formatTime(new Date(first).toISOString(),true))}</text>${dots}</svg><div class="observed-legend"><span>● Blue</span><span>● SPY comparator</span></div>`;
-  const rows=points.slice(-20).reverse().map(p=>`<tr><td>${escapeHTML(formatTime(p.at))}</td><td>${escapeHTML(money(p.value))}</td><td>${escapeHTML(money(p.benchmark_value))}</td><td>${Array.isArray(p.marks)?p.marks.map(m=>`${escapeHTML(m.symbol)} ${escapeHTML(formatTime(m.market_data_at))}`).join('<br>'):'Source timestamps unavailable'}</td></tr>`).join('');
-  $('#performance-chart').innerHTML+=`<details class="observation-table"><summary>Read latest ${Math.min(points.length,20)} observations</summary><div class="table-scroll"><table><caption>Recorded values, not official closes</caption><thead><tr><th>Accounting cutoff</th><th>Blue</th><th>SPY</th><th>Trade timestamps</th></tr></thead><tbody>${rows}</tbody></table></div></details>`;
-  $('#chart-note').textContent=`${points.length} observed points · ${formatTime(new Date(last).toISOString(),true)} latest. Not official closes; gaps are not interpolated.${history.truncated?' Recent 200 reconciliation receipts only.':''}${history.omitted_unverified?' Unverified observations omitted.':''}`;
+  const dots=points.map(p=>keys.map((key,i)=>`<circle cx="${x(Date.parse(p.at)).toFixed(2)}" cy="${y(Number(p[key])).toFixed(2)}" r="3.5" fill="${i?'#947338':'#164f78'}"><title>${escapeHTML(i?'SPY comparator':'Blue')}: ${escapeHTML(money(p[key]))} · ${escapeHTML(formatTime(p.at))}${p.valuation_status==='last_known'?' · Last-known mark':''}</title></circle>`).join('')).join('');
+  $('#performance-chart').innerHTML=`<svg class="observed-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="Portfolio dollar values at saved observations, with opening capital reference. Gaps are not interpolated."><line x1="${pad}" y1="${height-pad}" x2="${width-pad}" y2="${height-pad}" stroke="#bdc5c6"/><text x="5" y="${y(hi)}">${escapeHTML(money(hi,0))}</text><text x="5" y="${y(lo)}">${escapeHTML(money(lo,0))}</text><text x="${pad}" y="${height-5}">${escapeHTML(axisTime(first))}</text><line x1="${pad}" y1="${y(100000)}" x2="${width-pad}" y2="${y(100000)}" stroke="#7a7a70" stroke-dasharray="4 4"/><text x="${pad}" y="24">Starting value: $100,000</text><text text-anchor="end" x="${width-pad}" y="${height-5}">${escapeHTML(axisTime(last))}</text>${dots}</svg><div class="observed-legend"><span>● Portfolio</span>${compare?'<span>● Starting money invested in SPY</span>':''}</div>`;
+  const rows=points.slice(-20).reverse().map(p=>`<tr><td>${escapeHTML(formatTime(p.at))}</td><td>${escapeHTML(money(p.value))}</td>${compare?`<td>${escapeHTML(money(p.benchmark_value))}</td>`:''}<td>${Array.isArray(p.marks)?p.marks.map(m=>`${escapeHTML(m.symbol)} ${escapeHTML(formatTime(m.market_data_at))}`).join('<br>'):'Source timestamps unavailable'}</td></tr>`).join('');
+  $('#performance-chart').innerHTML+=`<details class="observation-table"><summary>Read latest ${Math.min(points.length,20)} observations</summary><div class="table-scroll"><table><caption>Recorded values, not official closes</caption><thead><tr><th>Accounting cutoff</th><th>Portfolio</th>${compare?'<th>SPY</th>':''}<th>Trade timestamps</th></tr></thead><tbody>${rows}</tbody></table></div></details>`;
+  $('#chart-summary').textContent=`${money(points.at(-1).value)} · ${money(Number(points.at(-1).value)-100000)} since opening`;
+  $('#chart-note').textContent=`Saved IEX values · latest ${formatTime(new Date(last).toISOString(),true)}. Not official closes or live broker values; gaps are not estimated.${history.truncated?' Recent 200 reconciliation receipts only.':''}${history.omitted_unverified?' Unverified observations omitted.':''}`;
 }
 
 function renderRisk(state, started) {
@@ -204,7 +214,7 @@ function recordCard(event, journal = false) {
   // Every authored payload field remains inspectable in every record view.
   const labels = { thesis: 'Original thesis', horizon: 'Expected horizon', change_mind: 'What would change our mind', invalidation_conditions: 'Invalidation conditions', size: 'Proposed size · USD notional', position_size: 'Position size', counterargument: 'Independent counterargument', challenge_response: 'Response to the challenge', snapshot_ids: 'Source snapshots', required_before_purchase_thesis: 'Required before purchase thesis' };
   const facts = Object.entries(payload).filter(([key]) => !['title', 'summary', 'author', 'role'].includes(key)).map(([key, value]) => [labels[key] || key.replace(/_/g, ' ').replace(/^./, char => char.toUpperCase()), value === null ? 'null (recorded)' : key === 'size' ? money(value) : value]);
-  const evidence = Array.isArray(payload.evidence) ? payload.evidence : [];
+  const evidence = Array.isArray(payload.evidence) ? payload.evidence.filter(e=>e&&typeof e==='object') : [];
   const evidenceHTML = evidence.length ? `<details class="evidence"><summary>${evidence.length} evidence source${evidence.length === 1 ? '' : 's'} · inspect provenance</summary><ul>${evidence.map((source) => {
     const url = safeURL(source.url);
     const label = source.title || source.url || 'Recorded source';
@@ -311,12 +321,35 @@ function decisionPresentation(event, events) {
   const completed=intents.length===1 && fills.length>0 && events.some(e=>e.kind==='order_closed' && e.payload.intent_id===intents[0].id && e.payload.status==='filled' && numeric(e.payload.accounted_quantity) && numeric(intents[0].payload.order?.qty) && Number(e.payload.accounted_quantity)===Number(intents[0].payload.order.qty) && fills.reduce((n,f)=>n+Number(f.payload.fill.quantity),0)===Number(e.payload.accounted_quantity));
   const partial=intents.length===1 && numeric(intents[0].payload.order?.qty) && fills.length>0 && fills.reduce((n,f)=>n+Number(f.payload.fill.quantity),0)<Number(intents[0].payload.order.qty);
   const status=conflict?'Trade record needs checking':completed?(p.action==='sell'?'Filled paper sale':'Filled paper purchase'):fills.length?(partial?'Partial fill recorded':'Fill recorded · completion unconfirmed'):intents.length?'Order recorded · outcome not confirmed':p.action==='hold'?'No new purchase':p.action==='buy'?'Proposed purchase · not a confirmed fill':p.action==='sell'?'Proposed sale · not a confirmed fill':'Recorded review';
-  return {category,status,title:copy?.title || (p.action==='buy'?`Consider buying ${p.symbol || 'an investment'}`:p.action==='sell'?`Consider selling ${p.symbol || 'an investment'}`:p.action==='hold'?'Leave the portfolio unchanged':'Review the plan'),reason:copy?.reason || (typeof p.plain_language_summary==='string' && p.plain_language_summary.trim() ? p.plain_language_summary : 'The original explanation is available below.'),fills};
+  return {category,status,title:copy?.title || p.title || (p.action==='buy'?`Consider buying ${p.symbol || 'an investment'}`:p.action==='sell'?`Consider selling ${p.symbol || 'an investment'}`:p.action==='hold'?'Leave the portfolio unchanged':'Review the plan'),reason:copy?.reason || readerText(p.plain_language_summary||p.summary||'No summary recorded.'),fills};
+}
+function brief(value){const text=readerText(value);if(text.length<=300)return text;const cut=text.lastIndexOf(' ',300);return text.slice(0,cut>200?cut:300)+'…';}
+function readerText(value){
+  return asText(value).replace(/([a-zA-Z])(\d)/g,'$1 $2').replace(/(\d)(days|day|bn|k|%)/g,'$1 $2').replace(/callQ&A/g,'call Q&A').replace(/simpleFCF/g,'simple FCF').replace(/pendingprice/g,'pending price');
+}
+function rationale(event){
+  const p=event.payload||{};
+  const summary=p.plain_language_summary||p.summary;
+  const fields=[['Full summary',typeof summary==='string'&&summary.length>300?summary:null],['Why',p.thesis||p.counterargument],['Risks',p.uncertainties],['What would change the decision',p.change_mind],['Next checkpoint',p.horizon]];
+  const links=(Array.isArray(p.evidence)?p.evidence:[]).filter(e=>e&&safeURL(e.url)).map(e=>`<li><a href="${escapeHTML(safeURL(e.url))}" target="_blank" rel="noopener noreferrer">${escapeHTML(e.title||'Source')}</a></li>`).join('');
+  return `<div class="reader-rationale">${fields.filter(([,v])=>v).map(([label,value])=>`<section><h3>${label}</h3><p>${escapeHTML(readerText(value))}</p></section>`).join('')}${links?`<section><h3>Sources</h3><ul>${links}</ul></section>`:''}</div>`;
+}
+function humanSummary(event){
+  if(event.id==='blue-MSFT-actual-results-challenge-2026-10-28'&&event.digest==='f4e7d25be99732706e07256b97197b7823ff567b45a28018e4b64e5c0a8d7d84')return 'The independent review agreed that growth improved, but found weaker cash generation and heavier investment. It recommended waiting for a current price and clearer spending details before buying.';
+  return event.payload?.plain_language_summary||event.payload?.summary||'';
+}
+function humanRecord(event){
+  const p=event.payload||{};
+  return `<article class="record-card"><div class="record-topline"><span>${escapeHTML(roleName(event))}</span><time>${escapeHTML(formatTime(event.created_at,true))}</time></div><h2>${escapeHTML(readerText(p.title||'Recorded review'))}</h2><p class="record-summary">${escapeHTML(brief(humanSummary(event)))}</p><details class="record-detail"><summary>Reasons, risks &amp; next steps</summary>${rationale(event)}</details><details class="record-detail technical"><summary>Original record &amp; technical details</summary>${recordCard(event)}</details></article>`;
+}
+function historyCards(events){
+  const human=events.filter(e=>['decision','research','challenge','revision'].includes(e.kind));
+  return (human.length?human.map(e=>e.kind==='decision'?investmentCard(e,events):humanRecord(e)).join(''):emptyState('No reviews at this time',''))+`<details class="desk-detail technical"><summary>All original receipts (${events.length})</summary>${events.map(e=>recordCard(e)).join('')}</details>`;
 }
 function investmentCard(event,events) {
   const d=decisionPresentation(event,events);
   const receipts=d.fills.map(e=>{const f=e.payload.fill;return `${number(f.quantity,8)} ${escapeHTML(f.symbol)} share${Number(f.quantity)===1?'':'s'} at ${money(f.price_text)} each`;}).join(' · ');
-  return `<article class="record-card investment-card"><div class="role-tag">${escapeHTML(d.status)}</div><h2>${escapeHTML(d.title)}</h2><p class="record-summary">${escapeHTML(d.reason)}</p>${receipts?`<p class="fill-summary">Recorded fills: ${receipts}</p>`:''}<details class="record-detail"><summary>Why, sources &amp; original record</summary>${recordCard(event)}${d.fills.map(e=>`<details><summary>Fill receipt</summary>${readableValue(e)}</details>`).join('')}</details></article>`;
+  return `<article class="record-card investment-card"><div class="record-topline"><span class="role-tag">${escapeHTML(d.status)}</span><time>${escapeHTML(formatTime(event.created_at,true))}</time></div><h2>${escapeHTML(d.title)}</h2><p class="record-summary">${escapeHTML(brief(d.reason))}</p>${receipts?`<p class="fill-summary">Recorded fills: ${receipts}</p>`:''}<details class="record-detail"><summary>Why, risks &amp; next steps</summary>${rationale(event)}</details><details class="record-detail technical"><summary>Original record &amp; technical details</summary>${recordCard(event)}${d.fills.map(e=>`<details><summary>Fill receipt</summary>${readableValue(e)}</details>`).join('')}</details></article>`;
 }
 function renderRecords(state) {
   const events = getEvents(state);
@@ -330,11 +363,11 @@ function renderRecords(state) {
   const latestHold=investments.find(e=>e.payload.action==='hold');
   const highlights=investments.filter(e=>e.payload.action!=='hold'||e===latestHold);
   const older=contributions.filter(e=>!highlights.includes(e));
-  $('#decision-list').innerHTML = filter==='investment' ? (highlights.length?highlights.map(e=>investmentCard(e,events)).join(''):emptyState('No investment decision yet','Planning and account checks are kept below.')) + (older.length?`<details class="desk-detail"><summary>Earlier reviews, research &amp; setup (${older.length})</summary>${older.map(e=>recordCard(e)).join('')}</details>`:'') : filtered.length ? filtered.map((event) => recordCard(event)).join('') : emptyState('No contributions', 'No records in this view.');
-  const journal = contributions.filter(event => ['decision', 'revision'].includes(event.kind));
-  $('#journal-list').innerHTML = journal.length ? journal.map((event) => recordCard(event, true)).join('') : emptyState('No decisions yet', 'Awaiting manager review.');
+  $('#decision-list').innerHTML = filter==='investment' ? (highlights.length?highlights.map(e=>investmentCard(e,events)).join(''):emptyState('No investment decision yet','Planning and account checks are kept below.')) + (older.length?`<details class="desk-detail"><summary>Earlier reviews, research &amp; setup (${older.length})</summary>${older.map(e=>humanRecord(e)).join('')}</details>`:'') : filtered.length ? filtered.map((event) => humanRecord(event)).join('') : emptyState('No contributions', 'No records in this view.');
+  const journal = contributions.filter(event => ['research', 'challenge'].includes(event.kind));
+  $('#journal-list').innerHTML = (journal.length ? journal.map((event) => humanRecord(event)).join('') : emptyState('No research yet', '')) + `<details class="desk-detail technical"><summary>Decision originals</summary>${contributions.filter(e=>!journal.includes(e)).map(e=>recordCard(e)).join('')}</details>`;
   if (!$('#replay-date').value || $('#replay-date').value === 'all') {
-    $('#replay-list').innerHTML = events.length ? events.map(event => recordCard(event)).join('') : emptyState('No history yet', '');
+    $('#replay-list').innerHTML = events.length ? historyCards(events) : emptyState('No history yet', '');
     $('#replay-status').textContent = state.history_truncated ? 'Recent records · Download the full audit log in Operations.' : 'Present record';
   }
   const latest = investments[0];
@@ -377,7 +410,7 @@ function renderHealth(state) {
   const reconciliation = reconciliationDisplay(state);
   const rows = [
     healthItem('Paper reconciliation', reconciliation.value, reconciliation.detail, reconciliation.kind),
-    healthItem('Official experiment', state.experiment?.status || 'Unverified', state.experiment?.started_at ? `Started ${formatTime(state.experiment.started_at)}` : 'No inception timestamp; no official performance history.', 'warning'),
+    healthItem('Official experiment', state.experiment?.status || 'Unverified', state.experiment?.started_at ? `Started ${formatTime(state.experiment.started_at)}` : 'No inception timestamp; no official performance history.', state.experiment?.status==='active'?'ok':'warning'),
     healthItem('Alpaca paper connection', healthValue(health.alpaca ?? health.alpaca_status ?? health.source_status ?? (account?.status === 'ACTIVE' ? 'Authenticated' : null)), 'Server-side paper endpoint only.', health.source_status === 'connected' ? 'ok' : ''),
     healthItem('Market data', health.source_status === 'failed' ? 'Update failed' : snapshot ? health.data_fresh === true ? 'Fresh at state cutoff' : 'Not execution-fresh' : 'No verified snapshot', snapshot ? `Last retrieval ${formatTime(snapshot.payload.retrieved_at || snapshot.created_at)}` : 'Alpaca IEX, with source timestamps.'),
     healthItem('Persistent records', healthValue(health.persistence ?? health.database), health.persistence_detail || 'Append-only decisions and source evidence.'),
@@ -396,7 +429,7 @@ function renderHealth(state) {
     verificationRows.push(healthItem(item.title || 'Recorded verification', asText(outcome), detail, outcome === 'passed' ? 'ok' : outcome === 'failed' ? 'warning' : ''));
   });
   if (Array.isArray(health.blockers)) [...new Set(health.blockers)].forEach((item, index) => rows.push(healthItem(`Readiness blocker ${index + 1}`, 'Unresolved', asText(item), 'warning')));
-  $('#health-list').innerHTML = rows.join('') + (verificationRows.length ? `<details class="desk-detail"><summary>Technical checks &amp; audit records (${verificationRows.length})</summary>${verificationRows.join('')}</details>` : '');
+  $('#health-list').innerHTML = rows.slice(0,2).join('') + `<details class="desk-detail"><summary>Connection, updates &amp; technical checks</summary>${rows.slice(2).join('')}</details>` + (verificationRows.length ? `<details class="desk-detail"><summary>Technical checks &amp; audit records (${verificationRows.length})</summary>${verificationRows.join('')}</details>` : '');
 }
 
 function renderMandate(mandate) {
@@ -422,6 +455,47 @@ function renderMandate(mandate) {
   $('#mandate-grid').innerHTML = items.map(([label, value, detail]) => `<div class="mandate-item"><h3>${escapeHTML(label)}</h3><strong>${escapeHTML(value)}</strong><p>${escapeHTML(detail)}</p></div>`).join('');
 }
 
+function renderBrokerDisplay(result) {
+  const b=result?.observation;
+  $('#broker-status').textContent = result?.error || (b ? `Alpaca account · retrieved ${formatTime(b.retrieved_at, true)} · ${b.is_open ? 'regular session' : 'outside regular session'}` : 'Broker values not loaded; saved analytical values shown.');
+  if(!b)return;
+  const stale=result.status!=='available'||Date.now()-Date.parse(b.retrieved_at)>180000;
+  $('#capital-title').firstChild.textContent = stale ? 'LAST BROKER VALUE ' : 'BROKER ACCOUNT VALUE ';
+  $('#portfolio-value').textContent=money(b.equity);
+  $('#capital-context').textContent=`${stale?'Last observation · ':''}Alpaca account · ${formatTime(b.retrieved_at,true)}`;
+  $('#cash-value').textContent=money(b.cash);
+  $('#invested-value').textContent=money(b.holdings.reduce((total,h)=>total+h.market_value,0));
+  const ratio=knownRatio(b.cash,b.equity);$('#cash-percent').textContent=ratio===null?'—':`${percent(ratio)} of account`;
+  $('#cash-track').hidden=ratio===null;$('#cash-track').style.width=`${ratio===null?0:Math.min(100,Math.max(0,ratio*100))}%`;
+  const opened=Boolean(currentState?.experiment?.started_at);
+  const gain=opened?b.equity-Number(currentState.experiment.initial_cash):null;
+  $('#return-value').textContent=money(gain);
+  $('#return-value').classList.toggle('negative',numeric(gain)&&gain<0);$('#return-value').classList.toggle('positive',numeric(gain)&&gain>0);
+  $('#return-detail').textContent=opened?`${percent(gain/Number(currentState.experiment.initial_cash))} versus opening capital`:'Experiment not started';
+  renderHoldings({holdings:b.holdings,value:b.equity},opened);
+  $('#holdings-source').textContent='Alpaca account prices; individual price timestamps are unavailable. History uses saved IEX prices.';
+}
+function scheduleDisplay(delay=30000){
+  clearTimeout(displayTimer);
+  if(document.hidden||currentView!=='overview')return;
+  displayTimer=setTimeout(refreshDisplay,Math.max(1000,delay));
+}
+async function refreshDisplay(){
+  if(displayBusy||document.hidden||currentView!=='overview')return;
+  clearTimeout(displayTimer);displayBusy=true;
+  const button=$('#refresh-button');button.disabled=true;
+  let delay=120000;
+  try{
+    brokerDisplay=await request('/api/display',{signal:AbortSignal.timeout(20000)});
+    renderBrokerDisplay(brokerDisplay);displayFailures=0;
+    delay=Math.max(30000,Math.min(120000,Number(brokerDisplay.next_poll_ms)||120000));
+  }catch{
+    displayFailures++;$('#broker-status').textContent='Price update unavailable. Displayed values may be old.';
+    if(brokerDisplay)renderBrokerDisplay({...brokerDisplay,status:'unavailable',error:'Price update unavailable. Displayed values may be old.'});
+    delay=Math.min(300000,60000*2**Math.min(displayFailures,3));
+  }finally{displayBusy=false;button.disabled=false;scheduleDisplay(delay);}
+}
+
 async function loadState() {
   if (!currentState) { $('#loading').hidden = false; $('#loading').textContent = 'Opening the experiment…'; }
   try {
@@ -442,21 +516,14 @@ async function loadState() {
 
 $$('[data-view]').forEach((button) => button.addEventListener('click', () => setView(button.dataset.view)));
 $$('[data-go]').forEach((button) => button.addEventListener('click', () => { setView(button.dataset.go); $('#main').focus({ preventScroll: true }); window.scrollTo({ top: 0, behavior: 'smooth' }); }));
+window.addEventListener('resize', () => {clearTimeout(chartResizeTimer);chartResizeTimer=setTimeout(()=>{if(currentState&&currentView==='overview')renderChart(currentState,Boolean(currentState.experiment?.started_at));},200);});
 window.addEventListener('hashchange', () => setView(location.hash.slice(1), false));
 $('#decision-filter').addEventListener('change', () => { if (currentState) renderRecords(currentState); });
 
-$('#refresh-button').addEventListener('click', async () => {
-  const button = $('#refresh-button');
-  button.disabled = true;
-  button.textContent = 'Refreshing…';
-  showMessage('');
-  try {
-    const result = await request('/api/refresh', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idempotency_key: crypto.randomUUID() }) });
-    const loaded = await loadState();
-    if (loaded) showMessage(result.message || 'Market observations refreshed.');
-  } catch (error) { showMessage(`${error.message} The previous state is retained; a failed update does not authorize a trade.`, true); }
-  finally { button.disabled = false; button.innerHTML = '<span aria-hidden="true"><svg class="ui-icon" viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 8a6 6 0 1 0 0 5M16 3v5h-5"/></svg></span> Refresh'; }
-});
+$('#refresh-button').addEventListener('click', async () => {await loadState();await refreshDisplay();});
+$('#reload-records').addEventListener('click', () => loadState());
+$('#compare-market').addEventListener('change', () => {if(currentState)renderChart(currentState,Boolean(currentState.experiment?.started_at));});
+document.addEventListener('visibilitychange', () => scheduleDisplay(1000));
 
 $('#replay-button').addEventListener('click', async () => {
   const value = $('#replay-date').value;
@@ -472,7 +539,7 @@ $('#replay-button').addEventListener('click', async () => {
     if (requestId !== replayRequest) return;
     const events = getEvents(replay).filter((event) => new Date(event.created_at || event.recorded_at) <= date);
     $('#replay-status').textContent = `${events.length} record${events.length === 1 ? '' : 's'} available as of ${formatTime(date.toISOString())}. ${replay.history_truncated ? 'Recent window only; download the full audit log in Operations.' : 'Receipt-time view.'}`;
-    $('#replay-list').innerHTML = events.length ? events.map((event) => recordCard(event)).join('') : emptyState('Before the record began.', 'No information had been recorded by the chosen moment. Information received later has been excluded.', '↶');
+    $('#replay-list').innerHTML = events.length ? historyCards(events) : emptyState('Before the record began.', 'No information had been recorded by the chosen moment. Information received later has been excluded.', '↶');
   } catch (error) { if (requestId === replayRequest) { $('#replay-status').textContent = error.message; $('#replay-list').innerHTML = ''; } }
   finally { if (requestId === replayRequest) button.disabled = false; }
 });
@@ -482,7 +549,7 @@ $('#replay-reset').addEventListener('click', () => {
   $('#replay-date').value = '';
   $('#replay-status').textContent = currentState?.history_truncated ? 'Recent records · Download the full audit log in Operations.' : 'Present record';
   const events = currentState ? getEvents(currentState) : [];
-  $('#replay-list').innerHTML = events.length ? events.map((event) => recordCard(event)).join('') : emptyState('Nothing to rewind yet.', 'The immutable timeline begins when the first record is received.', '↶');
+  $('#replay-list').innerHTML = events.length ? historyCards(events) : emptyState('Nothing to rewind yet.', 'The immutable timeline begins when the first record is received.', '↶');
 });
 
 $('#export-history').addEventListener('click', async () => {
@@ -504,4 +571,4 @@ $('#export-history').addEventListener('click', async () => {
 });
 
 setView(location.hash.slice(1), false);
-loadState();
+loadState().then(() => refreshDisplay());

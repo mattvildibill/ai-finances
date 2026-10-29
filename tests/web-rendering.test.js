@@ -12,7 +12,7 @@ function ui() {
   };
   const source = readFileSync(new URL('../web/app.js', import.meta.url), 'utf8').split("$$('[data-view]')")[0];
   const context = vm.createContext({ document: { querySelector: get, querySelectorAll: () => [] }, URL, Intl });
-  vm.runInContext(`${source}\nglobalThis.renderers = { renderState, renderMarket, renderHoldings, renderChart, recordCard, renderRecords };`, context);
+  vm.runInContext(`${source}\nglobalThis.renderers = { renderState, renderMarket, renderHoldings, renderChart, recordCard, renderRecords, renderBrokerDisplay };`, context);
   return { ...context.renderers, get };
 }
 
@@ -130,7 +130,7 @@ test('all navigation routes, refresh errors, loading retry and history controls 
   let fail = true;
   let responseGate = null;
   const fixture = { as_of:'2026-10-27T14:00:00Z', history_truncated:true, portfolio:{value:100000,cash:100000}, events:[] };
-  const context = vm.createContext({ document: {querySelector:element,querySelectorAll:s=>s === '[data-view]' || s === '.nav-item' ? buttons : s === '.view' ? sections : []}, URL, Intl, history:{replaceState(){}}, location:{hash:''}, window:{addEventListener(){},scrollTo(){}}, crypto:{randomUUID:()=> 'isolated-key'}, fetch:async()=> { if(responseGate) await responseGate; if(fail) throw Error('Isolated failure'); return {ok:true,json:async()=>fixture}; } });
+  const context = vm.createContext({ AbortSignal, setTimeout:()=>1, clearTimeout(){}, document: {addEventListener(){},querySelector:element,querySelectorAll:s=>s === '[data-view]' || s === '.nav-item' ? buttons : s === '.view' ? sections : []}, URL, Intl, history:{replaceState(){}}, location:{hash:''}, window:{addEventListener(){},scrollTo(){}}, crypto:{randomUUID:()=> 'isolated-key'}, fetch:async()=> { if(responseGate) await responseGate; if(fail) throw Error('Isolated failure'); return {ok:true,json:async()=>fixture}; } });
   vm.runInContext(readFileSync(new URL('../web/app.js', import.meta.url),'utf8'),context);
   await new Promise(resolve=>setImmediate(resolve));
   assert.match(element('#loading').innerHTML,/Try again/);
@@ -165,8 +165,9 @@ test('all navigation routes, refresh errors, loading retry and history controls 
   assert.match(element('#replay-status').textContent,/Recent records/);
   assert.equal(element('#replay-date').value,'');
   fail=true;
+  buttons[0].handlers.click();
   await element('#refresh-button').handlers.click();
-  assert.match(element('#global-message').textContent,/previous state is retained/);
+  assert.match(element('#broker-status').textContent,/Price update unavailable/);
   assert.equal(element('#refresh-button').disabled,false);
   assert.equal(element('#portfolio-value').textContent,'$100,000.00');
 });
@@ -294,7 +295,7 @@ test('malformed or absent universe and version metadata remain unavailable, neve
 test('observed NAV dots expose timestamped values without pretending continuous lines or official closes',()=>{
  const view=ui();const points=[{at:'2026-10-27T19:59:36Z',value:100008.42,benchmark_value:100270.40,snapshot_id:'actual-fixture-1',official_close:false},{at:'2026-10-27T20:00:59Z',value:100007.92,benchmark_value:100257.40,snapshot_id:'actual-fixture-2',official_close:false,valuation_status:'last_known'}];
  view.renderChart({valuation_history:{schema:'observed-nav-v1',points,interpolation:false}},true);
- const html=view.get('#performance-chart').innerHTML;assert.match(html,/<svg/);assert.equal((html.match(/<circle /g)||[]).length,4);assert.doesNotMatch(html,/<polyline|<path/);assert.match(html,/100,008.42/);assert.match(html,/actual-fixture-2/);assert.match(view.get('#chart-note').textContent,/Not official closes/);
+ const html=view.get('#performance-chart').innerHTML;assert.match(html,/<svg/);assert.equal((html.match(/<circle /g)||[]).length,2);assert.doesNotMatch(html,/<polyline|<path/);assert.match(html,/100,008.42/);assert.doesNotMatch(html,/actual-fixture-2/);assert.match(view.get('#chart-note').textContent,/Not official closes/);
  points[0].snapshot_id='<script>unsafe</script>';view.renderChart({valuation_history:{schema:'observed-nav-v1',points}},true);assert.doesNotMatch(view.get('#performance-chart').innerHTML,/<script>/);
 });
 test('last verified historical NAV is separated from current unknown accounting',()=>{
@@ -313,7 +314,7 @@ test('investment highlights use exact-source plain copy and retain every origina
  const visible=html.split('<details')[0];assert.doesNotMatch(visible,/narrower reconciliation|2026-|Recorded |Immutable/);
  assert.match(html,/Original complex statement/);assert.match(html,/Full original thesis/);
  const list=view.get('#decision-list').innerHTML;assert.match(list,/Earlier reviews, research &amp; setup \(2\)/);assert.match(list,/Actual setup wording/);assert.equal(JSON.stringify([hold,setup,earlier]),before);
- hold.digest='changed';view.renderRecords({events:[hold]});assert.doesNotMatch(view.get('#latest-decision').innerHTML,/Prices were too old/);assert.match(view.get('#latest-decision').innerHTML,/original explanation is available/);
+ hold.digest='changed';view.renderRecords({events:[hold]});assert.doesNotMatch(view.get('#latest-decision').innerHTML,/Prices were too old/);assert.match(view.get('#latest-decision').innerHTML,/Original complex statement/);
 });
 
 test('trade highlights require linked actual fill evidence and distinguish partial, full and conflicting outcomes',()=>{
@@ -336,7 +337,7 @@ test('simplified dashboard retains blocked-state warnings, SPY explanation and u
  const view=ui();view.renderState({experiment:{status:'paused',started_at:'2026-10-27T13:30:00Z'},operation:{authorization:'expired'},accounting:{status:'ready'},portfolio:{value:99958,cash:96000,gain:-42,total_return:-0.00042,holdings:[{symbol:'SPY',quantity:5,cost_basis:4000,market_value:3958,unrealized_pl:-42}]}});
  assert.equal(view.get('#return-value').textContent,'-$42.00');assert.match(view.get('#pause-detail').textContent,/permission has ended/);assert.match(view.get('#holdings-body').innerHTML,/Fund holding large US companies/);assert.doesNotMatch(view.get('#capital-state').textContent,/READY/);
  view.renderState({experiment:{status:'paused',started_at:'2026-10-27T13:30:00Z'},operation:{authorization:'expired'},account_drift:true,portfolio:{}});assert.equal(view.get('#pause-detail').textContent,'Account checks need attention. No new trades.');
- const page=readFileSync(new URL('../web/index.html',import.meta.url),'utf8');assert.match(page,/<option value="investment" selected>/);assert.match(page,/GAIN \/ LOSS/);assert.match(page,/What we own/);
+ const page=readFileSync(new URL('../web/index.html',import.meta.url),'utf8');assert.match(page,/<option value="investment" selected>/);assert.match(page,/CHANGE SINCE START/);assert.match(page,/What we own/);
 });
 
 
@@ -353,4 +354,31 @@ test('actual broker fees are plainly disclosed as expenses rather than hidden ro
  const view=ui();view.renderState({experiment:{started_at:'2026-10-27T13:31:45.975Z',status:'active'},portfolio:{value:100000.01,cash:96160.01,gain:0.01,fees:0.01,total_return:0.0000001}});
  assert.match(view.get('#capital-context').textContent,/Broker fees paid: \$0\.01; deducted from cash and returns/);
  assert.match(view.get('#capital-context').textContent,/SPY comparator has no inferred fee/);
+});
+
+test('market comparator is opt-in and chart clears obsolete headline when history is unavailable',()=>{
+ const view=ui(),state={valuation_history:{schema:'observed-nav-v1',points:[{at:'2026-10-28T15:00:00Z',value:99990,benchmark_value:100100,official_close:false}]}};
+ view.renderChart(state,true);assert.equal((view.get('#performance-chart').innerHTML.match(/<circle /g)||[]).length,1);assert.match(view.get('#chart-summary').textContent,/-\$10.00 since opening/);
+ view.get('#compare-market').checked=true;view.renderChart(state,true);assert.equal((view.get('#performance-chart').innerHTML.match(/<circle /g)||[]).length,2);assert.match(view.get('#performance-chart').innerHTML,/Starting money invested in SPY/);
+ view.renderChart({},true);assert.equal(view.get('#chart-summary').textContent,'');
+});
+
+test('human decision detail separates rationale from technical IDs and preserves original payload exactly',()=>{
+ const view=ui();view.get('#decision-filter').value='investment';
+ const event={kind:'decision',id:'private-record-id',created_at:'2026-10-29T01:00:00Z',payload:{title:'Keep watching Microsoft',action:'hold',size:0,plain_language_summary:'Strong growth, but spending also rose.',summary:'Original contingent15k statement',research_id:'technical-research-id',snapshot_ids:['technical-snapshot'],thesis:'Evaluate growth and price.',horizon:'Within original180days.',uncertainties:'callQ&A unverified.',evidence:[null,{title:'Company results',url:'https://example.com/results'}]}};
+ const before=JSON.stringify(event);view.renderRecords({events:[event]});const html=view.get('#decision-list').innerHTML;const visible=html.split('<details class="record-detail technical">')[0];
+ assert.match(visible,/Strong growth/);assert.match(visible,/Why/);assert.match(visible,/Next checkpoint/);assert.match(visible,/original 180 days/);assert.match(visible,/call Q&amp;A/);assert.doesNotMatch(visible,/technical-research-id|technical-snapshot|private-record-id|\$0.00|Proposal/);
+ assert.match(html,/Original contingent15k statement/);assert.match(html,/technical-research-id/);assert.equal(JSON.stringify(event),before);
+ event.payload.evidence={unexpected:'shape'};assert.doesNotThrow(()=>view.renderRecords({events:[event]}));
+});
+
+test('actual October29 observation separates broker valuation from older IEX history without changing either',()=>{
+ const fixture=JSON.parse(readFileSync(new URL('./fixtures/actual-dashboard-observation-2026-10-29.json',import.meta.url)));
+ const view=ui();const before=JSON.stringify(fixture);
+ view.renderState({experiment:{started_at:'2026-10-27T13:31:45.975Z',initial_cash:100000,status:'active'},portfolio:fixture.analytical_portfolio});
+ assert.equal(view.get('#portfolio-value').textContent,'$100,053.34');
+ view.renderBrokerDisplay({status:'available',observation:{equity:fixture.account.equity,cash:fixture.account.cash,retrieved_at:fixture.retrieved_at,is_open:false,holdings:fixture.positions}});
+ assert.equal(view.get('#portfolio-value').textContent,'$99,783.48');assert.equal(view.get('#cash-value').textContent,'$43,546.18');assert.equal(view.get('#return-value').textContent,'-$216.52');
+ assert.match(view.get('#holdings-body').innerHTML,/12,001.50/);assert.match(view.get('#fee-note').textContent,/\$0.01/);assert.match(view.get('#fee-note').textContent,/no hypothetical fee/);
+ assert.equal(JSON.stringify(fixture),before);
 });

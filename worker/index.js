@@ -1,3 +1,4 @@
+import {displayValuation} from '../lib/display-valuation.js';
 import {collectCashActivities} from '../lib/cash-activities.js';
 import {collectManagedActions,recordManagedAction,managedActionCandidate,managedCoverageCandidate} from '../lib/managed-actions.js';
 import {readCompleteHistory} from '../lib/history.js';
@@ -115,6 +116,7 @@ export default {async fetch(request,env){
   }
   const actor=authorize(request,env);
   if(url.pathname.startsWith('/api/')){
+   if(url.pathname==='/api/display'&&request.method==='GET'){if(url.search)throw new AppError('Display does not accept parameters.');return json(await displayValuation(env.DB,env));}
    if(url.pathname==='/api/state'&&request.method==='GET')return json(await call('portfolio_state',{as_of:url.searchParams.get('as_of')||undefined},env,actor));
    if(url.pathname==='/api/refresh'&&request.method==='POST')return json(await call('refresh_market',await body(request),env,actor));
    if(url.pathname==='/api/records'&&request.method==='POST')return json(await call('submit_record',await body(request),env,actor));
