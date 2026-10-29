@@ -1,3 +1,4 @@
+import {nextSyntheticSession} from './session-time-fixture.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {temporaryDatabase} from './helpers.js';
@@ -13,7 +14,7 @@ test('independent continuation binding preserves root lineage and ambiguous comm
  const prior=await stageRollout(db,rolloutEnv,{idempotency_key:'security-original-approval',payload:r.payload},actor);
  const d=await decisionChain(db,r.f,'security-unresolved-buy',{size:1000});await reconcile(db,rolloutEnv,'security-pre-buy-reconciliation',actor,r.f.fetcher);
  await executeRolloutDecision(db,rolloutEnv,d.id,actor,r.f.fetcher); // Synthetic order intentionally left open.
- const events=await records(db),future=new Date(Date.now()+86400000),close=new Date(future.getTime()+3600000).toISOString();
+ const events=await records(db),future=new Date(nextSyntheticSession(prior.payload.valid_until)),close=new Date(future.getTime()+3600000).toISOString();
  const p={...r.payload,protocol_version:2,previous_approval_id:prior.id,session_authorization_reference:'synthetic manager authority',session_date:marketDate(future.toISOString()),valid_until:new Date(future.getTime()+60000).toISOString(),session_close_at:close};
  const b=sessionBinding(events,p);
  assert.equal(b.budget_root.opening_id,r.opening.id);assert.equal(b.budget_root.opening_digest,r.opening.digest);assert.equal(b.budget_root.initial_approval_id,prior.id);assert.equal(b.previous_digest,prior.digest);
@@ -35,7 +36,7 @@ import {seedCoverage} from './action-fixtures.js';
 import {observe} from '../lib/alpaca.js';
 test('later sessions cannot bypass a withdrawn earlier session review',async t=>{
  const {db}=temporaryDatabase(t),r=await reviewed(db);let previous=await stageRollout(db,rolloutEnv,{idempotency_key:'withdrawal-original',payload:r.payload},actor);
- t.mock.timers.enable({apis:['Date'],now:Date.now()+86400000});
+ t.mock.timers.enable({apis:['Date'],now:nextSyntheticSession(previous.payload.valid_until)});
  const fetcher=async(url,options)=>new URL(url).pathname==='/v2/clock'?Response.json({is_open:true,timestamp:new Date().toISOString(),next_open:new Date(Date.now()+86400000).toISOString(),next_close:new Date(Date.now()+3600000).toISOString()}):r.f.fetcher(url,options);
  async function prepareSession(label){
   await seedCoverage(db);await append(db,{id:label+'-snapshot',kind:'snapshot',actor,payload:await observe(rolloutEnv,fetcher)});await reconcile(db,rolloutEnv,label+'-reconciliation',actor,fetcher);
@@ -46,7 +47,7 @@ test('later sessions cannot bypass a withdrawn earlier session review',async t=>
  }
  const first=await prepareSession('withdrawal-session-2');previous=await stageRollout(db,rolloutEnv,{idempotency_key:'withdrawal-session-2-approval',payload:first},actor);
  await append(db,{id:'withdrawn-session-2-review',kind:'verification',actor,payload:{check:'session_authorization_review',binding:first.session_binding,outcome:'failed'}});
- t.mock.timers.tick(86400000);const second=await prepareSession('withdrawal-session-3');
+ t.mock.timers.setTime(nextSyntheticSession(previous.payload.valid_until));const second=await prepareSession('withdrawal-session-3');
  await assert.rejects(stageRollout(db,rolloutEnv,{idempotency_key:'withdrawal-session-3-approval',payload:second},actor),/Prior session review failed/);
  assert.equal(await getEvent(db,'withdrawal-session-3-approval'),null);assert.equal(r.f.posts,1);
 });

@@ -1,3 +1,4 @@
+import {nextSyntheticSession} from './session-time-fixture.js';
 import test from 'node:test';import assert from 'node:assert/strict';
 import {temporaryDatabase} from './helpers.js';
 import {reviewed,decisionChain,rolloutEnv,actor,records} from './universe-fixtures.js';
@@ -11,7 +12,7 @@ import {marketDate} from '../lib/action-ledger.js';
 async function prepare(t){
  const {db}=temporaryDatabase(t),r=await reviewed(db);const previous=await stageRollout(db,rolloutEnv,{idempotency_key:'first-session',payload:r.payload},actor);
  const d=await decisionChain(db,r.f,'first-addition',{size:1500});await reconcile(db,rolloutEnv,'first-addition-recon',actor,r.f.fetcher);await executeRolloutDecision(db,rolloutEnv,d.id,actor,r.f.fetcher);r.f.settle();await reconcile(db,rolloutEnv,'first-addition-fill',actor,r.f.fetcher);
- const tomorrow=Date.now()+86400000;t.mock.timers.enable({apis:['Date'],now:tomorrow});
+ const tomorrow=nextSyntheticSession(previous.payload.valid_until);t.mock.timers.enable({apis:['Date'],now:tomorrow});
  const fetcher=async(url,options)=>new URL(url).pathname==='/v2/clock'?Response.json({is_open:true,timestamp:new Date().toISOString(),next_open:new Date(Date.now()+86400000).toISOString(),next_close:new Date(Date.now()+3600000).toISOString()}):r.f.fetcher(url,options);
  await seedCoverage(db);await append(db,{id:'next-session-snapshot',kind:'snapshot',actor,payload:await observe(rolloutEnv,fetcher)});await reconcile(db,rolloutEnv,'next-session-recon',actor,fetcher);
  const payload={...r.payload,protocol_version:2,previous_approval_id:previous.id,session_date:marketDate(new Date().toISOString()),valid_until:new Date(Date.now()+60000).toISOString(),session_authorization_reference:'synthetic-explicit-next-session-approval',session_close_at:new Date(Date.now()+3600000).toISOString()};
