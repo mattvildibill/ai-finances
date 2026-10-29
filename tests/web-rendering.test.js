@@ -376,7 +376,7 @@ test('actual October29 observation separates broker valuation from older IEX his
  const fixture=JSON.parse(readFileSync(new URL('./fixtures/actual-dashboard-observation-2026-10-29.json',import.meta.url)));
  const view=ui();const before=JSON.stringify(fixture);
  view.renderState({experiment:{started_at:'2026-10-27T13:31:45.975Z',initial_cash:100000,status:'active'},portfolio:fixture.analytical_portfolio});
- assert.equal(view.get('#portfolio-value').textContent,'$100,053.34');
+ assert.equal(view.get('#portfolio-value').textContent,'$100,053.34');assert.equal(view.get('#capital-title').firstChild.textContent,'SAVED IEX VALUE ');
  view.renderBrokerDisplay({status:'available',observation:{equity:fixture.account.equity,cash:fixture.account.cash,retrieved_at:fixture.retrieved_at,is_open:false,holdings:fixture.positions}});
  assert.equal(view.get('#portfolio-value').textContent,'$99,783.48');assert.equal(view.get('#cash-value').textContent,'$43,546.18');assert.equal(view.get('#return-value').textContent,'-$216.52');
  assert.match(view.get('#holdings-body').innerHTML,/12,001.50/);assert.match(view.get('#fee-note').textContent,/\$0.01/);assert.match(view.get('#fee-note').textContent,/no hypothetical fee/);

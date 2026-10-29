@@ -85,7 +85,7 @@ function renderState(state) {
   $('#invested-value').textContent = knownRatio(cash, value) === null ? '—' : money(Number(value) - Number(cash));
   $('#cash-value').textContent = money(cash);
   $('#capital-state').textContent = !statusKnown ? 'UNVERIFIED' : started ? (state.operation?.authorization==='expired'?'NO NEW TRADES':paused ? 'PAUSED' : 'PAPER PORTFOLIO') : unstarted ? 'PRE-LAUNCH' : 'UNVERIFIED';
-  $('#capital-title').firstChild.textContent = unstarted ? 'OPENING CAPITAL ' : historical ? 'LAST VERIFIED VALUE ' : 'TOTAL VALUE ';
+  $('#capital-title').firstChild.textContent = unstarted ? 'OPENING CAPITAL ' : historical ? 'LAST VERIFIED VALUE ' : 'SAVED IEX VALUE ';
   $('#capital-context').textContent = historical ? `Historical observation · ${formatTime(historical.at)} · Current valuation unavailable; cash and holdings below are separate.` : started ? `${portfolio.valuation_status === 'last_known' ? 'Last available price' : 'Prices observed'} ${formatTime(portfolio.observation?.observed_at || portfolio.as_of, true)} · Not an official close` : unstarted ? 'Allocated starting cash · Official experiment not started' : 'Experiment state unavailable';
   if (numeric(portfolio.fees) && Number(portfolio.fees)>0) $('#capital-context').textContent += ` · Broker fees paid: ${money(portfolio.fees)}; deducted from cash and returns. SPY comparator has no inferred fee.`;
   const gain = presentOrLegacy(portfolio.gain, portfolio.total_gain);
